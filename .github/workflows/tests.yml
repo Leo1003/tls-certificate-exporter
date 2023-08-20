@@ -8,7 +8,15 @@ on:
       - '**.md'
 
 jobs:
+  deny-check:
+    name: Do cargo deny check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: EmbarkStudios/cargo-deny-action@v1
   test:
+    name: Matrix tests
+    needs: deny-check
     strategy:
       fail-fast: false
       matrix:
@@ -17,7 +25,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: EmbarkStudios/cargo-deny-action@v1
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
