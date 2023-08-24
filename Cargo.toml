@@ -13,9 +13,11 @@ categories = []
 
 [dependencies]
 backtrace = { version = "0.3.68", optional = true }
+chrono = "0.4.26"
 config = "0.13.3"
 dotenvy = "0.15.7"
 duration-str = { version = "0.5.1", default-features = false, features = ["serde"] }
+num-bigint = "0.4.4"
 pem = "3.0.1"
 prometheus = "0.13.3"
 rustls-native-certs = { version = "0.6.3", optional = true }
@@ -26,4 +28,4 @@ tokio = { version = "1.31.0", features = ["rt-multi-thread", "net", "macros"] }
 tokio-rustls = { version = "0.24.1", features = ["dangerous_configuration"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
-x509-parser = "0.15.1"
+x509-certificate = "0.21.0"

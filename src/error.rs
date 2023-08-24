@@ -45,4 +45,6 @@ impl std::error::Error for AppError {
 pub enum ErrorReason {
     #[error("failed to load the configuration")]
     Config(#[from] config::ConfigError),
+    #[error("IO error")]
+    Io(#[from] std::io::Error),
 }
