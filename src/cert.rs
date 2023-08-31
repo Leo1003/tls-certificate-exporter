@@ -16,22 +16,22 @@ impl ParsedCertificate {
     }
 
     pub fn serial_number(&self) -> BigUint {
-        let number = self.0.as_ref().tbs_certificate.serial_number;
+        let number = &self.0.as_ref().tbs_certificate.serial_number;
 
         BigUint::from_bytes_be(number.as_slice())
     }
 
     pub fn not_before(&self) -> i64 {
-        match self.0.as_ref().tbs_certificate.validity.not_before {
+        match &self.0.as_ref().tbs_certificate.validity.not_before {
             Time::UtcTime(t) => t.timestamp(),
-            Time::GeneralTime(t) => DateTime::<Utc>::from(t).timestamp(),
+            Time::GeneralTime(t) => DateTime::<Utc>::from(t.clone()).timestamp(),
         }
     }
 
     pub fn not_after(&self) -> i64 {
-        match self.0.as_ref().tbs_certificate.validity.not_after {
+        match &self.0.as_ref().tbs_certificate.validity.not_after {
             Time::UtcTime(t) => t.timestamp(),
-            Time::GeneralTime(t) => DateTime::<Utc>::from(t).timestamp(),
+            Time::GeneralTime(t) => DateTime::<Utc>::from(t.clone()).timestamp(),
         }
     }
 
