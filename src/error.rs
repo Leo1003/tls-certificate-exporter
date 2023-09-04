@@ -23,7 +23,9 @@ impl AppError {
 }
 
 impl<E> From<E> for AppError
-    where E: Into<ErrorReason> {
+where
+    E: Into<ErrorReason>,
+{
     fn from(reason: E) -> Self {
         Self::new(reason.into())
     }
@@ -47,4 +49,10 @@ pub enum ErrorReason {
     Config(#[from] config::ConfigError),
     #[error("IO error")]
     Io(#[from] std::io::Error),
+    #[error("X509 certificate parsing error")]
+    X509(#[from] x509_certificate::X509CertificateError),
+    #[error("Domain name lookup error")]
+    Resolver(#[from] trust_dns_resolver::error::ResolveError),
+    #[error("Invalid endpoint")]
+    InvalidEndpoint,
 }

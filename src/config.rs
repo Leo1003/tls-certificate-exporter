@@ -2,9 +2,9 @@ use crate::error::AppResult;
 
 use config::{Config, Environment, File};
 use duration_str::{deserialize_duration, deserialize_option_duration};
+use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GlobalConfig {
@@ -13,11 +13,14 @@ pub struct GlobalConfig {
     #[serde(default = "default_timeout", deserialize_with = "deserialize_duration")]
     pub default_timeout: Duration,
 
-    #[serde(default = "default_interval", deserialize_with = "deserialize_duration")]
+    #[serde(
+        default = "default_interval",
+        deserialize_with = "deserialize_duration"
+    )]
     pub default_interval: Duration,
-    
+
     pub targets: Vec<TargetConfig>,
-    
+
     pub trusted_anchors: Vec<FileContent>,
 }
 
@@ -80,6 +83,5 @@ pub enum FileContent {
     },
     Path {
         path: Vec<String>,
-    }
+    },
 }
-

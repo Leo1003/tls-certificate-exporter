@@ -1,7 +1,7 @@
-use num_bigint::BigUint;
 use crate::error::AppResult;
 use chrono::{DateTime, Utc};
-use x509_certificate::{X509Certificate, asn1time::Time};
+use num_bigint::BigUint;
+use x509_certificate::{asn1time::Time, X509Certificate};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParsedCertificate(pub X509Certificate);

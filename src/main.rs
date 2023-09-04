@@ -1,8 +1,8 @@
 mod cert;
-mod cert_store;
 mod config;
 mod error;
 mod state;
+mod store;
 
 fn main() {
     // Load environment variables from the `.env` file
@@ -19,7 +19,4 @@ fn main() {
         .block_on(server_loop())
 }
 
-async fn server_loop() {
-
-}
-
+async fn server_loop() {}
