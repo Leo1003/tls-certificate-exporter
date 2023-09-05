@@ -1,4 +1,7 @@
+use std::fmt::{Display, Formatter};
+
 use crate::error::AppResult;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use num_bigint::BigUint;
 use x509_certificate::{asn1time::Time, X509Certificate};
@@ -43,8 +46,22 @@ impl ParsedCertificate {
     }
 }
 
+impl Display for ParsedCertificate {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let der = self.0.encode_der()
+            .map_err(|_| std::fmt::Error)?;
+        write!(f, "{}", STANDARD.encode(der))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CertificateIdentifier {
     serial_number: BigUint,
     fingerprint: Vec<u8>,
+}
+
+impl Display for CertificateIdentifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}#{}", STANDARD.encode(&self.fingerprint), &self.serial_number)
+    }
 }

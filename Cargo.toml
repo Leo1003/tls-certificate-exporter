@@ -13,8 +13,10 @@ categories = []
 
 [dependencies]
 backtrace = { version = "0.3.68", optional = true }
+base64 = "0.21.3"
 chrono = "0.4.26"
 config = "0.13.3"
+crossbeam = "0.8.2"
 dotenvy = "0.15.7"
 duration-str = { version = "0.5.1", default-features = false, features = ["serde"] }
 num-bigint = "0.4.4"
@@ -30,3 +32,6 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 trust-dns-resolver = { version = "0.23.0", features = ["tokio-runtime", "system-config", "dns-over-rustls", "dnssec-ring"] }
 x509-certificate = "0.21.0"
+
+[dev-dependencies]
+webpki-roots = "0.25.2"
