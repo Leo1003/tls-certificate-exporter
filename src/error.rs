@@ -55,4 +55,6 @@ pub enum ErrorReason {
     Resolver(#[from] trust_dns_resolver::error::ResolveError),
     #[error("Invalid endpoint")]
     InvalidEndpoint,
+    #[error("Unknown error")]
+    Unknown,
 }

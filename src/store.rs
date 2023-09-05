@@ -11,9 +11,9 @@ use std::{
     str::FromStr,
     sync::Arc,
 };
-use tokio_rustls::rustls::{Certificate, ClientConfig, RootCertStore, ServerName};
+use tokio_rustls::rustls::{Certificate, ClientConfig, RootCertStore, ServerName, OwnedTrustAnchor};
 use trust_dns_resolver::{name_server::ConnectionProvider, AsyncResolver, TryParseIp};
-use x509_certificate::{X509Certificate, X509CertificateError};
+use x509_certificate::X509Certificate;
 
 #[derive(Clone, Debug, Default)]
 pub struct Store {
@@ -62,6 +62,30 @@ impl Store {
             .collect();
 
         Ok(identifiers)
+    }
+
+    pub fn update_endpoint_probe_result(
+        &mut self,
+        endpoint: &Endpoint,
+        certificates: impl IntoIterator<Item = Certificate>,
+        successful: bool,
+    ) -> AppResult<&mut EndpointState> {
+        let identifiers = self.add_certificates(certificates.into_iter())?;
+
+        let Some(state) = self.endpoint_store.get_mut(&endpoint) else {
+            return Err(ErrorReason::InvalidEndpoint.into());
+        };
+
+        state.cert_idents = identifiers;
+        state.last_probe = Some(Utc::now());
+        state.probe_result = successful;
+
+        Ok(state)
+    }
+
+    pub fn clear(&mut self) {
+        self.cert_store.clear();
+        self.endpoint_store.clear();
     }
 }
 
@@ -153,6 +177,32 @@ impl EndpointState {
         tls_config
             .dangerous()
             .set_certificate_verifier(interceptor.clone());
+
+        Self {
+            endpoint,
+            tls_config: Arc::new(tls_config),
+            interceptor,
+            cert_idents: Default::default(),
+            last_probe: Default::default(),
+            probe_result: Default::default(),
+        }
+    }
+
+    pub fn with_webpki_defaults(endpoint: Endpoint) -> Self {
+        let mut root_certs = RootCertStore::empty();
+        root_certs.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+            OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
+        let interceptor = Arc::new(CertificateInterceptor::new(root_certs));
+
+        let tls_config = ClientConfig::builder()
+            .with_safe_defaults()
+            .with_custom_certificate_verifier(interceptor.clone())
+            .with_no_client_auth();
 
         Self {
             endpoint,

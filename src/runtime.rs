@@ -1,9 +1,7 @@
-use chrono::Utc;
 use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 
 use crate::{
-    cert,
     error::{AppResult, ErrorReason},
     store::{Endpoint, Store},
 };
@@ -26,21 +24,17 @@ impl Application {
             .connect(endpoint.server_name.clone(), stream)
             .await;
 
-        if let Some(certificates) = state.interceptor.get_certificates() {
-            let identifiers = self.store.add_certificates(certificates.into_iter())?;
-
-            let Some(state) = self.store.endpoint_store.get_mut(&endpoint) else {
-                return Err(ErrorReason::InvalidEndpoint.into());
-            };
-            state.cert_idents = identifiers;
-        }
-
-        let Some(state) = self.store.endpoint_store.get_mut(&endpoint) else {
-            return Err(ErrorReason::InvalidEndpoint.into());
+        let Some(certificates) = state.interceptor.get_certificates() else {
+            // Don't get certificates, might be connection error
+            if let Err(err) = result {
+                return Err(err.into());
+            } else {
+                return Err(ErrorReason::Unknown.into());
+            }
         };
 
-        state.last_probe = Some(Utc::now());
-        state.probe_result = result.is_ok();
+        self.store
+            .update_endpoint_probe_result(&endpoint, certificates, result.is_ok())?;
 
         Ok(())
     }
@@ -62,24 +56,10 @@ mod test {
             .await
             .unwrap();
 
-        let config = ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(RootCertStore::empty())
-            .with_no_client_auth();
-        let mut root_cert_store = RootCertStore::empty();
-        root_cert_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
-
         for ep in endpoint {
-            app.store.endpoint_store.insert(
-                ep.clone(),
-                EndpointState::new(ep.clone(), config.clone(), root_cert_store.clone()),
-            );
+            app.store
+                .endpoint_store
+                .insert(ep.clone(), EndpointState::with_webpki_defaults(ep.clone()));
 
             app.probe(ep).await.unwrap();
         }
