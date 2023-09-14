@@ -1,6 +1,6 @@
 mod cert;
 mod certificate_interceptor;
-mod config;
+mod configs;
 mod error;
 mod runtime;
 mod state;
