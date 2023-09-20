@@ -7,11 +7,11 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-pub struct Application {
+pub struct Prober {
     store: Store,
 }
 
-impl Application {
+impl Prober {
     pub async fn probe(&mut self, endpoint: Endpoint) -> AppResult<()> {
         let Some(state) = self.store.endpoint_store.get(&endpoint) else {
             return Err(ErrorReason::InvalidEndpoint.into());
@@ -49,7 +49,7 @@ mod test {
 
     #[tokio::test]
     async fn probe_rust_lang_org() {
-        let mut app = Application::default();
+        let mut app = Prober::default();
 
         let resolver = TokioAsyncResolver::tokio_from_system_conf().unwrap();
         let endpoint = Endpoint::resolve("www.rust-lang.org:443", &resolver)

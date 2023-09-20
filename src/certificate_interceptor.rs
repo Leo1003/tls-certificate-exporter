@@ -2,7 +2,7 @@ use crossbeam::atomic::AtomicCell;
 use std::{fmt::Debug, time::SystemTime};
 use tokio_rustls::rustls::{
     client::{ServerCertVerified, ServerCertVerifier, WebPkiVerifier},
-    Certificate, RootCertStore, ServerName,
+    Certificate, RootCertStore, ServerName, OwnedTrustAnchor,
 };
 
 /// If the certificate has issues, the connect will return Err.
@@ -22,6 +22,18 @@ impl CertificateInterceptor {
             certificates: Default::default(),
             verifier,
         }
+    }
+
+    pub fn with_webpki_roots() -> Self {
+        let mut root_certs = RootCertStore::empty();
+        root_certs.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+            OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
+        Self::new(root_certs)
     }
 
     pub fn get_certificates(&self) -> Option<Vec<Certificate>> {

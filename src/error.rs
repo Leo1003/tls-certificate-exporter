@@ -53,8 +53,12 @@ pub enum ErrorReason {
     X509(#[from] x509_certificate::X509CertificateError),
     #[error("Domain name lookup error")]
     Resolver(#[from] trust_dns_resolver::error::ResolveError),
+    #[error("PEM encode/decode error")]
+    PemError(#[from] pem::PemError),
     #[error("Invalid endpoint")]
     InvalidEndpoint,
+    #[error("Invalid PEM tag")]
+    InvalidPemTag,
     #[error("Unknown error")]
     Unknown,
 }

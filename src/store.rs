@@ -11,7 +11,9 @@ use std::{
     str::FromStr,
     sync::Arc,
 };
-use tokio_rustls::rustls::{Certificate, ClientConfig, RootCertStore, ServerName, OwnedTrustAnchor};
+use tokio_rustls::rustls::{
+    Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore, ServerName,
+};
 use trust_dns_resolver::{name_server::ConnectionProvider, AsyncResolver, TryParseIp};
 use x509_certificate::X509Certificate;
 
@@ -189,15 +191,7 @@ impl EndpointState {
     }
 
     pub fn with_webpki_defaults(endpoint: Endpoint) -> Self {
-        let mut root_certs = RootCertStore::empty();
-        root_certs.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
-        let interceptor = Arc::new(CertificateInterceptor::new(root_certs));
+        let interceptor = Arc::new(CertificateInterceptor::with_webpki_roots());
 
         let tls_config = ClientConfig::builder()
             .with_safe_defaults()

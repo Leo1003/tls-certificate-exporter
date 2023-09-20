@@ -1,10 +1,12 @@
 use crate::error::AppResult;
-
-use config::{Config, Environment, File};
+use config::{Config, Environment as ConfigEnv, File as ConfigFile};
 use duration_str::{deserialize_duration, deserialize_option_duration};
 use serde::{Deserialize, Serialize};
-use std::default::Default;
-use std::time::Duration;
+use std::{default::Default, time::Duration};
+
+mod file_content;
+
+pub use file_content::FileContent;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GlobalConfig {
@@ -27,8 +29,9 @@ pub struct GlobalConfig {
 impl GlobalConfig {
     pub fn load_config() -> AppResult<Self> {
         let cfg = Config::builder()
-            .add_source(File::with_name("config").required(false))
-            .add_source(Environment::default().separator("."))
+            .add_source(ConfigFile::with_name("/etc/tls-certificate-exporter/").required(false))
+            .add_source(ConfigFile::with_name("config").required(false))
+            .add_source(ConfigEnv::with_prefix("TLSCE").separator("."))
             .build()?
             .try_deserialize()?;
         Ok(cfg)
@@ -72,16 +75,4 @@ pub struct TlsConfig {
     pub key: Option<FileContent>,
     pub server_name: Option<String>,
     pub insecure_skip_verify: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum FileContent {
-    Inline {
-        #[serde(with = "serde_bytes")]
-        content: Vec<u8>,
-    },
-    Path {
-        path: Vec<String>,
-    },
 }
