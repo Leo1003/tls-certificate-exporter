@@ -2,7 +2,7 @@ use crossbeam::atomic::AtomicCell;
 use std::{fmt::Debug, time::SystemTime};
 use tokio_rustls::rustls::{
     client::{ServerCertVerified, ServerCertVerifier, WebPkiVerifier},
-    Certificate, RootCertStore, ServerName, OwnedTrustAnchor,
+    Certificate, OwnedTrustAnchor, RootCertStore, ServerName,
 };
 
 /// If the certificate has issues, the connect will return Err.

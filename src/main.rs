@@ -33,6 +33,4 @@ fn main() {
         .block_on(server_loop())
 }
 
-async fn server_loop() {
-
-}
+async fn server_loop() {}

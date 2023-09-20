@@ -48,8 +48,7 @@ impl ParsedCertificate {
 
 impl Display for ParsedCertificate {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let der = self.0.encode_der()
-            .map_err(|_| std::fmt::Error)?;
+        let der = self.0.encode_der().map_err(|_| std::fmt::Error)?;
         write!(f, "{}", STANDARD.encode(der))
     }
 }
@@ -62,6 +61,11 @@ pub struct CertificateIdentifier {
 
 impl Display for CertificateIdentifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}#{}", STANDARD.encode(&self.fingerprint), &self.serial_number)
+        write!(
+            f,
+            "{}#{}",
+            STANDARD.encode(&self.fingerprint),
+            &self.serial_number
+        )
     }
 }
