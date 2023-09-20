@@ -18,7 +18,7 @@ chrono = "0.4.26"
 config = "0.13.3"
 crossbeam = "0.8.2"
 dotenvy = "0.15.7"
-duration-str = { version = "0.5.1", default-features = false, features = ["serde"] }
+duration-str = { version = "0.7.0", default-features = false, features = ["serde"] }
 futures = { version = "0.3.28", default-features = false, features = ["std", "async-await"] }
 num-bigint = "0.4.4"
 pem = "3.0.1"
