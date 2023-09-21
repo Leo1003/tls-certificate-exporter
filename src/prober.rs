@@ -18,7 +18,7 @@ impl Prober {
         };
 
         let connector = TlsConnector::from(state.tls_config.clone());
-        let stream = TcpStream::connect(&endpoint.endpoint).await?;
+        let stream = TcpStream::connect(&endpoint.sockaddr).await?;
 
         let result = connector
             .connect(endpoint.server_name.clone(), stream)

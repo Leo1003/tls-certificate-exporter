@@ -1,6 +1,10 @@
 #[macro_use]
 extern crate serde_with;
 
+use error::AppResult;
+use store::Store;
+use trust_dns_resolver::AsyncResolver;
+
 use crate::configs::GlobalConfig;
 use std::num::NonZeroUsize;
 
@@ -13,7 +17,7 @@ mod prober;
 mod state;
 mod store;
 
-fn main() {
+fn main() -> AppResult<()> {
     // Load environment variables from the `.env` file
     dotenvy::dotenv().ok();
     // Initialize the logger after loading the environment variables
@@ -30,7 +34,12 @@ fn main() {
         .enable_all()
         .build()
         .expect("Failed to bootstrap the Tokio runtime")
-        .block_on(server_loop())
+        .block_on(server_loop(app_config))
 }
 
-async fn server_loop() {}
+async fn server_loop(app_config: GlobalConfig) -> AppResult<()> {
+    let store = Store::load_from_config(app_config).await?;
+    let resolver = AsyncResolver::tokio_from_system_conf()?;
+
+    Ok(())
+}
