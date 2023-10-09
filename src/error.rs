@@ -55,6 +55,10 @@ pub enum ErrorReason {
     Resolver(#[from] trust_dns_resolver::error::ResolveError),
     #[error("PEM encode/decode error")]
     PemError(#[from] pem::PemError),
+    #[error("WebPKI error")]
+    PkiError(#[from] webpki::Error),
+    #[error("TLS error")]
+    TlsError(#[from] tokio_rustls::rustls::Error),
     #[error("Invalid endpoint")]
     InvalidEndpoint,
     #[error("Invalid PEM tag")]

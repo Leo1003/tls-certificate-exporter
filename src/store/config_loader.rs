@@ -3,17 +3,17 @@ use crate::{
     error::{AppResult, ErrorReason},
 };
 use futures::{future::OptionFuture, stream::FuturesUnordered, TryStreamExt};
-use tokio_rustls::rustls::PrivateKey;
-use x509_certificate::X509Certificate;
+use tokio_rustls::rustls::{Certificate, OwnedTrustAnchor, PrivateKey};
+use webpki::TrustAnchor;
 
-use super::{Store, Target, TargetDefaultConfig};
+use super::{Store, TargetDefaultConfig, TargetParameter};
 
 impl Store {
     pub async fn load_from_config(config: GlobalConfig) -> AppResult<Self> {
         let tasks = config
             .trusted_anchors
             .into_iter()
-            .map(|file| async { load_certificates(file).await })
+            .map(|file| async { load_trusted_anchors(file).await })
             .collect::<FuturesUnordered<_>>();
 
         let trusted_anchors = tasks.try_concat().await?;
@@ -27,26 +27,25 @@ impl Store {
         let tasks = config
             .targets
             .into_iter()
-            .map(|config| async { Target::load_from_config(config).await })
+            .map(|config| async { TargetParameter::load_from_config(config).await })
             .collect::<FuturesUnordered<_>>();
-        let targets: Vec<Target> = tasks.try_collect().await?;
+        let targets: Vec<TargetParameter> = tasks.try_collect().await?;
 
         Ok(Self {
             target_default,
-            targets,
+            target_store: Default::default(),
             cert_store: Default::default(),
-            endpoint_store: Default::default(),
         })
     }
 }
 
-impl Target {
+impl TargetParameter {
     pub async fn load_from_config(config: TargetConfig) -> AppResult<Self> {
         let ca = OptionFuture::from(
             config
                 .tls_config
                 .ca
-                .map(|file| async { load_certificates(file).await }),
+                .map(|file| async { load_trusted_anchors(file).await }),
         )
         .await
         .transpose()?
@@ -71,7 +70,7 @@ impl Target {
         .transpose()?;
 
         Ok(Self {
-            endpoint: config.endpoint,
+            target: config.endpoint.parse()?,
             timeout: config.timeout,
             interval: config.interval,
             ca,
@@ -83,32 +82,36 @@ impl Target {
     }
 }
 
-async fn load_certificate(file: FileContent) -> AppResult<X509Certificate> {
+async fn load_certificate(file: FileContent) -> AppResult<Certificate> {
     let data = file.load_file().await?;
     let pem = pem::parse(data)?;
 
     match pem.tag() {
-        "CERTIFICATE" => Ok(X509Certificate::from_der(pem.contents())?),
+        "CERTIFICATE" => Ok(Certificate(pem.into_contents())),
         _ => Err(ErrorReason::InvalidPemTag.into()),
     }
 }
 
-async fn load_certificates(file: FileContent) -> AppResult<Vec<X509Certificate>> {
+async fn load_trusted_anchors(file: FileContent) -> AppResult<Vec<OwnedTrustAnchor>> {
     let data = file.load_file().await?;
     let pems = pem::parse_many(&data)?;
 
-    let mut certs = Vec::new();
+    let mut anchors = Vec::new();
     for pem in pems {
         match pem.tag() {
             "CERTIFICATE" => {
-                let cert = X509Certificate::from_der(pem.contents())?;
-                certs.push(cert);
+                let cert = TrustAnchor::try_from_cert_der(pem.contents())?;
+                anchors.push(OwnedTrustAnchor::from_subject_spki_name_constraints(
+                    cert.subject,
+                    cert.spki,
+                    cert.name_constraints,
+                ));
             }
             _ => return Err(ErrorReason::InvalidPemTag.into()),
         }
     }
 
-    Ok(certs)
+    Ok(anchors)
 }
 
 async fn load_private_key(file: FileContent) -> AppResult<PrivateKey> {

@@ -1,30 +1,70 @@
-use tokio::net::TcpStream;
-use tokio_rustls::TlsConnector;
+use std::sync::Arc;
 
 use crate::{
     error::{AppResult, ErrorReason},
-    store::{Endpoint, Store},
+    store::{Endpoint, EndpointState, Store, TargetParameter, TargetState},
 };
+use chrono::Utc;
+use futures::{stream::FuturesUnordered, TryStreamExt};
+use tokio::net::TcpStream;
+use tokio_rustls::{rustls::Certificate, TlsConnector};
+use trust_dns_resolver::TokioAsyncResolver;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Prober {
+    resolver: TokioAsyncResolver,
     store: Store,
 }
 
 impl Prober {
-    pub async fn probe(&mut self, endpoint: Endpoint) -> AppResult<()> {
-        let Some(state) = self.store.endpoint_store.get(&endpoint) else {
-            return Err(ErrorReason::InvalidEndpoint.into());
-        };
+    pub fn new(resolver: TokioAsyncResolver) -> Self {
+        Self {
+            resolver,
+            store: Store::default(),
+        }
+    }
 
-        let connector = TlsConnector::from(state.tls_config.clone());
+    pub async fn probe(&mut self, target: &TargetParameter) -> AppResult<()> {
+        let endpoints = Endpoint::resolve(&target.target, &self.resolver)
+            .await
+            .unwrap();
+
+        let tasks: FuturesUnordered<_> = endpoints
+            .into_iter()
+            .map(|ep| async move { Self::probe_endpoint(target, &ep).await })
+            .collect();
+        let probe_results: Vec<ProbeResult> = tasks.try_collect().await?;
+        let ep_states: Vec<EndpointState> = probe_results
+            .into_iter()
+            .map(|probe| {
+                self.store
+                    .add_certificates(probe.certificates)
+                    .map(|cert_idents| EndpointState {
+                        endpoint: probe.endpoint,
+                        cert_idents,
+                        probe_result: probe.probe_result,
+                    })
+            })
+            .collect::<AppResult<_>>()?;
+
+        self.store.update_probe_result(&target.target, ep_states);
+
+        Ok(())
+    }
+
+    async fn probe_endpoint(
+        target: &TargetParameter,
+        endpoint: &Endpoint,
+    ) -> AppResult<ProbeResult> {
+        let (tls_config, interceptor) = target.build_tls_config()?;
+        let connector = TlsConnector::from(Arc::new(tls_config));
         let stream = TcpStream::connect(&endpoint.sockaddr).await?;
 
         let result = connector
             .connect(endpoint.server_name.clone(), stream)
             .await;
 
-        let Some(certificates) = state.interceptor.get_certificates() else {
+        let Some(certificates) = interceptor.get_certificates() else {
             // Don't get certificates, might be connection error
             if let Err(err) = result {
                 return Err(err.into());
@@ -33,48 +73,52 @@ impl Prober {
             }
         };
 
-        self.store
-            .update_endpoint_probe_result(&endpoint, certificates, result.is_ok())?;
-
-        Ok(())
+        Ok(ProbeResult {
+            endpoint: endpoint.clone(),
+            certificates,
+            probe_result: result.is_ok(),
+        })
     }
+}
+
+#[derive(Clone, Debug)]
+struct ProbeResult {
+    pub endpoint: Endpoint,
+    pub certificates: Vec<Certificate>,
+    pub probe_result: bool,
 }
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use super::*;
     use crate::store::EndpointState;
-    use tokio_rustls::rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
     use trust_dns_resolver::TokioAsyncResolver;
 
     #[tokio::test]
     async fn probe_rust_lang_org() {
-        let mut app = Prober::default();
-
         let resolver = TokioAsyncResolver::tokio_from_system_conf().unwrap();
-        let endpoint = Endpoint::resolve("www.rust-lang.org:443", &resolver)
+        let mut prober = Prober::new(resolver);
+
+        prober
+            .probe(&TargetParameter::from_str("www.rust-lang.org:443").unwrap())
             .await
             .unwrap();
 
-        for ep in endpoint {
-            app.store
-                .endpoint_store
-                .insert(ep.clone(), EndpointState::with_webpki_defaults(ep.clone()));
-
-            app.probe(ep).await.unwrap();
-        }
-
         println!("Endpoints: ");
-        for (endpoint, state) in &app.store.endpoint_store {
-            println!("{}: ", endpoint);
-            for id in &state.cert_idents {
-                println!("    {}", id);
+        for (target, state) in &prober.store.target_store {
+            for endpoint in &state.endpoints {
+                println!("{}[{}]: ", target, endpoint.endpoint);
+                for id in &endpoint.cert_idents {
+                    println!("    {}", id);
+                }
             }
         }
         println!();
 
         println!("Certificates: ");
-        for (ident, cert) in &app.store.cert_store {
+        for (ident, cert) in &prober.store.cert_store {
             println!(
                 "[{}]: [{} ~ {}] {}",
                 ident,
@@ -83,6 +127,6 @@ mod test {
                 cert
             );
         }
-        assert!(!app.store.cert_store.is_empty());
+        assert!(!prober.store.cert_store.is_empty());
     }
 }

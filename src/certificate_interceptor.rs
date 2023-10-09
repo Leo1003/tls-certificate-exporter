@@ -10,17 +10,19 @@ use tokio_rustls::rustls::{
 pub struct CertificateInterceptor {
     certificates: AtomicCell<Option<Vec<Certificate>>>,
     verifier: WebPkiVerifier,
+    insecure_skip_verify: bool,
 }
 
 impl CertificateInterceptor {
-    pub fn new(roots: RootCertStore) -> Self {
-        Self::with_verifier(WebPkiVerifier::new(roots, None))
+    pub fn new(roots: RootCertStore, insecure_skip_verify: bool) -> Self {
+        Self::with_verifier(WebPkiVerifier::new(roots, None), insecure_skip_verify)
     }
 
-    pub fn with_verifier(verifier: WebPkiVerifier) -> Self {
+    pub fn with_verifier(verifier: WebPkiVerifier, insecure_skip_verify: bool) -> Self {
         Self {
             certificates: Default::default(),
             verifier,
+            insecure_skip_verify,
         }
     }
 
@@ -33,7 +35,7 @@ impl CertificateInterceptor {
                 ta.name_constraints,
             )
         }));
-        Self::new(root_certs)
+        Self::new(root_certs, false)
     }
 
     pub fn get_certificates(&self) -> Option<Vec<Certificate>> {
@@ -46,6 +48,7 @@ impl Debug for CertificateInterceptor {
         f.debug_struct("CertificateInterceptor")
             .field("certificates", &"<Redacted>")
             .field("verifier", &"<Redacted>")
+            .field("insecure_skip_verify", &self.insecure_skip_verify)
             .finish()
     }
 }
@@ -65,13 +68,17 @@ impl ServerCertVerifier for CertificateInterceptor {
 
         self.certificates.store(Some(certs));
 
-        self.verifier.verify_server_cert(
-            end_entity,
-            intermediates,
-            server_name,
-            scts,
-            ocsp_response,
-            now,
-        )
+        if self.insecure_skip_verify {
+            Ok(ServerCertVerified::assertion())
+        } else {
+            self.verifier.verify_server_cert(
+                end_entity,
+                intermediates,
+                server_name,
+                scts,
+                ocsp_response,
+                now,
+            )
+        }
     }
 }

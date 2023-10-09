@@ -14,14 +14,14 @@ mod target;
 
 pub use endpoint::Endpoint;
 pub use endpoint_state::EndpointState;
-pub use target::{Target, TargetDefaultConfig};
+pub use target::{Target, TargetDefaultConfig, TargetParameter, TargetState};
 
 #[derive(Clone, Debug, Default)]
 pub struct Store {
     pub target_default: TargetDefaultConfig,
-    pub targets: Vec<Target>,
+    pub target_store: HashMap<Target, TargetState>,
+    //pub endpoint_store: HashMap<Endpoint, EndpointState>,
     pub cert_store: HashMap<CertificateIdentifier, ParsedCertificate>,
-    pub endpoint_store: HashMap<Endpoint, EndpointState>,
 }
 
 impl Store {
@@ -44,9 +44,6 @@ impl Store {
             .into_iter()
             .map(X509Certificate::from_der)
             .map(|cert| cert.map(ParsedCertificate))
-            //     .collect::<Result<Vec<_>, X509CertificateError>>()?;
-            // let with_identifier = certificates
-            //     .into_iter()
             .flat_map(|cert| {
                 cert.map(|cert| {
                     cert.certificate_identifier()
@@ -67,27 +64,17 @@ impl Store {
         Ok(identifiers)
     }
 
-    pub fn update_endpoint_probe_result(
-        &mut self,
-        endpoint: &Endpoint,
-        certificates: impl IntoIterator<Item = Certificate>,
-        successful: bool,
-    ) -> AppResult<&mut EndpointState> {
-        let identifiers = self.add_certificates(certificates.into_iter())?;
-
-        let Some(state) = self.endpoint_store.get_mut(endpoint) else {
-            return Err(ErrorReason::InvalidEndpoint.into());
+    pub fn update_probe_result(&mut self, target: &Target, ep_states: Vec<EndpointState>) {
+        let target_state = TargetState {
+            endpoints: ep_states,
+            last_probe: Some(Utc::now()),
         };
 
-        state.cert_idents = identifiers;
-        state.last_probe = Some(Utc::now());
-        state.probe_result = successful;
-
-        Ok(state)
+        self.target_store.insert(target.clone(), target_state);
     }
 
     pub fn clear(&mut self) {
         self.cert_store.clear();
-        self.endpoint_store.clear();
+        self.target_store.clear();
     }
 }

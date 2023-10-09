@@ -7,6 +7,8 @@ use std::{
 use tokio_rustls::rustls::ServerName;
 use trust_dns_resolver::{name_server::ConnectionProvider, AsyncResolver, TryParseIp};
 
+use super::target::Target;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Endpoint {
     pub sockaddr: SocketAddr,
@@ -23,28 +25,27 @@ impl Endpoint {
     }
 
     pub async fn resolve<P: ConnectionProvider>(
-        endpoint: &str,
+        target: &Target,
         resolver: &AsyncResolver<P>,
     ) -> AppResult<Vec<Self>> {
-        let (addr, port) = endpoint
-            .split_once(':')
-            .ok_or(ErrorReason::InvalidEndpoint)?;
-        let port: u16 = port.parse().map_err(|_| ErrorReason::InvalidEndpoint)?;
-
-        if let Some(ip) = addr.try_parse_ip().and_then(|record| record.ip_addr()) {
+        if let Some(ip) = target
+            .host
+            .try_parse_ip()
+            .and_then(|record| record.ip_addr())
+        {
             Ok(vec![Self {
-                sockaddr: SocketAddr::new(ip, port),
+                sockaddr: SocketAddr::new(ip, target.port),
                 server_name: ServerName::IpAddress(ip),
             }])
         } else {
-            let server_name =
-                ServerName::try_from(addr).map_err(|_| ErrorReason::InvalidEndpoint)?;
+            let server_name = ServerName::try_from(target.host.as_str())
+                .map_err(|_| ErrorReason::InvalidEndpoint)?;
             Ok(resolver
-                .lookup_ip(addr)
+                .lookup_ip(&target.host)
                 .await?
                 .into_iter()
                 .map(|ip| Self {
-                    sockaddr: SocketAddr::new(ip, port),
+                    sockaddr: SocketAddr::new(ip, target.port),
                     server_name: server_name.clone(),
                 })
                 .collect())

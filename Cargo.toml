@@ -29,6 +29,7 @@ num-bigint = "0.4.4"
 pem = "3.0.1"
 prometheus = "0.13.3"
 rustls-native-certs = { version = "0.6.3", optional = true }
+rustls-webpki = "0.101.6"
 serde = { version = "1.0.184", features = ["derive"] }
 serde_bytes = "0.11.12"
 serde_with = "3.3.0"
