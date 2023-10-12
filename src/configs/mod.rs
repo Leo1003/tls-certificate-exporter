@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 use std::{default::Default, time::Duration};
 
 mod file_content;
+mod loader;
 
 pub use file_content::FileContent;
+pub use loader::*;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GlobalConfig {

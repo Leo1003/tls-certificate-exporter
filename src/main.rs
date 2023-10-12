@@ -1,12 +1,15 @@
 #[macro_use]
 extern crate serde_with;
 
+use configs::RuntimeConfig;
 use error::AppResult;
+use prober::Prober;
 use store::Store;
+use tokio::sync::RwLock;
 use trust_dns_resolver::AsyncResolver;
 
 use crate::configs::GlobalConfig;
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, sync::Arc};
 
 mod app;
 mod cert;
@@ -38,8 +41,10 @@ fn main() -> AppResult<()> {
 }
 
 async fn server_loop(app_config: GlobalConfig) -> AppResult<()> {
-    let store = Store::load_from_config(app_config).await?;
-    let resolver = AsyncResolver::tokio_from_system_conf()?;
+    let runtime_config = RuntimeConfig::load_from_config(app_config).await?;
+    let resolver = Arc::new(AsyncResolver::tokio_from_system_conf()?);
+    let store = Arc::new(RwLock::new(Store::with_config(runtime_config.target_default)));
+    let prober = Prober::new(resolver.clone(), store.clone());
 
     Ok(())
 }

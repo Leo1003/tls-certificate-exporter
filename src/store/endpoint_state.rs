@@ -1,12 +1,8 @@
 use super::Endpoint;
 use crate::{
     cert::CertificateIdentifier,
-    certificate_interceptor::CertificateInterceptor,
     error::{AppError, AppResult, ErrorReason},
 };
-use chrono::{DateTime, Utc};
-use std::sync::Arc;
-use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 
 #[derive(Clone, Debug)]
 pub struct EndpointState {

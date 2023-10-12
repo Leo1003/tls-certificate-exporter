@@ -1,20 +1,19 @@
 use crate::{
     cert::{CertificateIdentifier, ParsedCertificate},
-    error::{AppError, AppResult, ErrorReason},
+    error::{AppError, AppResult}, configs::TargetDefaultConfig,
 };
 use chrono::Utc;
 use std::collections::HashMap;
 use tokio_rustls::rustls::Certificate;
 use x509_certificate::X509Certificate;
 
-mod config_loader;
 mod endpoint;
 mod endpoint_state;
 mod target;
 
 pub use endpoint::Endpoint;
 pub use endpoint_state::EndpointState;
-pub use target::{Target, TargetDefaultConfig, TargetParameter, TargetState};
+pub use target::{Target, TargetState};
 
 #[derive(Clone, Debug, Default)]
 pub struct Store {
@@ -25,6 +24,13 @@ pub struct Store {
 }
 
 impl Store {
+    pub fn with_config(target_default: TargetDefaultConfig) -> Self {
+        Self {
+            target_default,
+            ..Default::default()
+        }
+    }
+
     pub fn add_pem_certificates(&mut self, buf: &[u8]) -> AppResult<()> {
         let certificates = X509Certificate::from_pem_multiple(buf)?
             .into_iter()
