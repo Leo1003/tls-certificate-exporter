@@ -99,7 +99,7 @@ mod test {
     #[tokio::test]
     async fn probe_rust_lang_org() {
         let resolver = Arc::new(TokioAsyncResolver::tokio_from_system_conf().unwrap());
-        let store = RwLock::new(Store::default());
+        let store = Arc::new(RwLock::new(Store::default()));
         let mut prober = Prober::new(resolver, store);
 
         prober
