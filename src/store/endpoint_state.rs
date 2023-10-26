@@ -5,7 +5,7 @@ use crate::cert::CertificateIdentifier;
 pub struct EndpointState {
     pub endpoint: Endpoint,
     pub cert_idents: Vec<CertificateIdentifier>,
-    pub probe_result: bool,
+    pub probe_result: Result<(), String>,
 }
 
 impl EndpointState {
@@ -13,7 +13,7 @@ impl EndpointState {
         Self {
             endpoint,
             cert_idents: Default::default(),
-            probe_result: Default::default(),
+            probe_result: Ok(()),
         }
     }
 }

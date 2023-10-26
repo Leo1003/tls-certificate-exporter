@@ -2,14 +2,16 @@
 extern crate serde_with;
 
 use anyhow::{Context, Result as AnyResult};
-use configs::RuntimeConfig;
+use chrono::Utc;
+use configs::{ConnectionParameters, RuntimeConfig, DEFAULT_INTERVAL};
+use futures::stream::FuturesUnordered;
 use prober::Prober;
-use store::Store;
-use tokio::sync::RwLock;
+use store::{Store, Target, TargetState};
+use tokio::{sync::RwLock, time::sleep};
 use trust_dns_resolver::AsyncResolver;
 
 use crate::configs::GlobalConfig;
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 mod app;
 mod cert;
@@ -43,8 +45,40 @@ fn main() -> AnyResult<()> {
 async fn server_loop(app_config: GlobalConfig) -> AnyResult<()> {
     let runtime_config = RuntimeConfig::load_from_config(app_config).await?;
     let resolver = Arc::new(AsyncResolver::tokio_from_system_conf()?);
-    let store = Arc::new(RwLock::new(Store::default()));
-    let prober = Prober::new(resolver.clone(), runtime_config.default_parameters);
+    let store = Arc::new(RwLock::new(Store::with_default_params(
+        runtime_config.default_parameters.clone(),
+    )));
+    let prober = Prober::new(resolver.clone(), runtime_config.default_parameters.clone());
+
+    let mut store_lock = store.write().await;
+    for targets in runtime_config.targets {
+        store_lock.insert_target(targets.target, targets.parameters);
+    }
+    drop(store_lock);
+
+    loop {
+        let wait = store.read().await.wait_duration();
+        sleep(wait).await;
+
+        let store_lock = store.read().await;
+        let targets: Vec<(Target, ConnectionParameters)> = store_lock
+            .target_store
+            .iter()
+            .filter(|(target, state)| {
+                if let Some(last_probe) = state.last_probe {
+                    let interval = state
+                        .parameters
+                        .interval
+                        .or(runtime_config.default_parameters.interval)
+                        .unwrap_or(DEFAULT_INTERVAL);
+                    (Utc::now() - last_probe).to_std().unwrap_or(Duration::ZERO) > interval
+                } else {
+                    true
+                }
+            })
+            .map(|(target, state)| (target.clone(), state.parameters.clone()))
+            .collect();
+    }
 
     Ok(())
 }

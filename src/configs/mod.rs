@@ -12,6 +12,9 @@ pub use file_content::FileContent;
 pub use loader::*;
 pub use parameters::*;
 
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(3);
+pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(600);
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GlobalConfig {
     pub workers: Option<usize>,
@@ -55,11 +58,11 @@ impl Default for GlobalConfig {
 }
 
 const fn default_timeout() -> Duration {
-    Duration::from_secs(3)
+    DEFAULT_TIMEOUT
 }
 
 const fn default_interval() -> Duration {
-    Duration::from_secs(600)
+    DEFAULT_INTERVAL
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

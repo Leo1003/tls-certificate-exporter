@@ -1,12 +1,16 @@
 use crate::{
     cert::ParsedCertificate,
-    configs::ConnectionParameters,
+    configs::{ConnectionParameters, DEFAULT_TIMEOUT},
     error::ErrorReason,
     store::{Endpoint, Target},
 };
 use anyhow::{Context, Result as AnyResult};
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use std::{sync::Arc, time::Duration};
+use std::{
+    io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult},
+    sync::Arc,
+    time::Duration,
+};
 use tokio::{net::TcpStream, time::timeout};
 use tokio_rustls::TlsConnector;
 use trust_dns_resolver::TokioAsyncResolver;
@@ -34,7 +38,7 @@ impl Prober {
         let params = parameters.merge(&self.default_params);
 
         let endpoints = timeout(
-            params.timeout.unwrap_or_else(|| Duration::from_secs(3)),
+            params.timeout.unwrap_or(DEFAULT_TIMEOUT),
             Endpoint::resolve(target, &self.resolver),
         )
         .await
@@ -59,9 +63,15 @@ impl Prober {
         let connector = TlsConnector::from(Arc::new(tls_config));
         let stream = TcpStream::connect(&endpoint.sockaddr).await?;
 
-        let conn_result = connector
-            .connect(endpoint.server_name.clone(), stream)
-            .await;
+        let conn_result = match timeout(
+            parameters.timeout.unwrap_or(DEFAULT_TIMEOUT),
+            connector.connect(endpoint.server_name.clone(), stream),
+        )
+        .await
+        {
+            Ok(conn_result) => conn_result.map(|_| ()),
+            Err(elapsed) => Err(IoError::new(IoErrorKind::TimedOut, elapsed)),
+        };
 
         let Some(certificates) = interceptor.get_certificates() else {
             // Didn't get certificates, might be connection error
@@ -81,7 +91,7 @@ impl Prober {
         Ok(ProbeResult {
             endpoint: endpoint.clone(),
             certificates: parsed_certs,
-            probe_result: conn_result.is_ok(),
+            probe_result: conn_result.map_err(|e| e.to_string()),
         })
     }
 }
@@ -90,7 +100,7 @@ impl Prober {
 pub struct ProbeResult {
     pub endpoint: Endpoint,
     pub certificates: Vec<ParsedCertificate>,
-    pub probe_result: bool,
+    pub probe_result: Result<(), String>,
 }
 
 #[cfg(test)]
@@ -113,7 +123,7 @@ mod test {
 
         println!("Endpoints: ");
         for pr in probe_results {
-            println!("{}[{}]: {}", target, pr.endpoint, pr.probe_result);
+            println!("{}[{}]: {:?}", target, pr.endpoint, pr.probe_result);
             for cert in &pr.certificates {
                 println!(
                     "[{}]: [{} ~ {}] {}",

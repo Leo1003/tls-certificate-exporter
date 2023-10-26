@@ -1,5 +1,5 @@
 use super::EndpointState;
-use crate::error::{AppError, ErrorReason};
+use crate::{error::{AppError, ErrorReason}, configs::ConnectionParameters};
 use chrono::{DateTime, Utc};
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
@@ -37,5 +37,6 @@ impl Display for Target {
 #[derive(Clone, Debug, Default)]
 pub struct TargetState {
     pub endpoints: Vec<EndpointState>,
+    pub parameters: ConnectionParameters,
     pub last_probe: Option<DateTime<Utc>>,
 }
