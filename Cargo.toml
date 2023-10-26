@@ -11,7 +11,11 @@ license = "Apache-2.0"
 keywords = []
 categories = []
 
+[features]
+backtrace = ["dep:backtrace", "anyhow/backtrace"]
+
 [dependencies]
+anyhow = "1.0.75"
 backtrace = { version = "0.3.68", optional = true }
 base64 = "0.21.3"
 chrono = "0.4.26"
@@ -28,7 +32,7 @@ futures = { version = "0.3.28", default-features = false, features = [
 num-bigint = "0.4.4"
 pem = "3.0.1"
 prometheus = "0.13.3"
-rustls-native-certs = { version = "0.6.3", optional = true }
+rustls-native-certs = "0.6.3"
 rustls-webpki = "0.101.6"
 serde = { version = "1.0.184", features = ["derive"] }
 serde_bytes = "0.11.12"

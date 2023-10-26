@@ -1,5 +1,5 @@
-use crate::error::AppResult;
 use serde::{Deserialize, Serialize};
+use std::io::Result as IoResult;
 use std::{convert::Infallible, ffi::OsString, path::PathBuf, str::FromStr};
 use tokio::{fs::File, io::AsyncReadExt};
 
@@ -16,7 +16,7 @@ pub enum FileContent {
 }
 
 impl FileContent {
-    pub async fn load_file(self) -> AppResult<Vec<u8>> {
+    pub async fn load_file(self) -> IoResult<Vec<u8>> {
         match self {
             FileContent::Inline { content } => Ok(content),
             FileContent::Path { path } => {

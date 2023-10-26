@@ -1,9 +1,8 @@
-use std::fmt::{Display, Formatter};
-
-use crate::error::AppResult;
+use anyhow::{Context, Result as AnyResult};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use num_bigint::BigUint;
+use std::fmt::{Display, Formatter};
 use x509_certificate::{asn1time::Time, X509Certificate};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -38,7 +37,7 @@ impl ParsedCertificate {
         }
     }
 
-    pub fn certificate_identifier(&self) -> AppResult<CertificateIdentifier> {
+    pub fn certificate_identifier(&self) -> AnyResult<CertificateIdentifier> {
         Ok(CertificateIdentifier {
             serial_number: self.serial_number(),
             fingerprint: self.0.sha256_fingerprint()?.as_ref().to_owned(),

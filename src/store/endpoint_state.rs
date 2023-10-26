@@ -1,8 +1,5 @@
 use super::Endpoint;
-use crate::{
-    cert::CertificateIdentifier,
-    error::{AppError, AppResult, ErrorReason},
-};
+use crate::cert::CertificateIdentifier;
 
 #[derive(Clone, Debug)]
 pub struct EndpointState {

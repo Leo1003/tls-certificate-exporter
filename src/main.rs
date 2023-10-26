@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate serde_with;
 
+use anyhow::{Context, Result as AnyResult};
 use configs::RuntimeConfig;
-use error::AppResult;
 use prober::Prober;
 use store::Store;
 use tokio::sync::RwLock;
@@ -20,7 +20,7 @@ mod prober;
 mod state;
 mod store;
 
-fn main() -> AppResult<()> {
+fn main() -> AnyResult<()> {
     // Load environment variables from the `.env` file
     dotenvy::dotenv().ok();
     // Initialize the logger after loading the environment variables
@@ -40,7 +40,7 @@ fn main() -> AppResult<()> {
         .block_on(server_loop(app_config))
 }
 
-async fn server_loop(app_config: GlobalConfig) -> AppResult<()> {
+async fn server_loop(app_config: GlobalConfig) -> AnyResult<()> {
     let runtime_config = RuntimeConfig::load_from_config(app_config).await?;
     let resolver = Arc::new(AsyncResolver::tokio_from_system_conf()?);
     let store = Arc::new(RwLock::new(Store::default()));

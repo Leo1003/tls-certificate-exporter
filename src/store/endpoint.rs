@@ -1,4 +1,5 @@
-use crate::error::{AppResult, ErrorReason};
+use crate::error::ErrorReason;
+use anyhow::{Context, Result as AnyResult};
 use std::{
     fmt::{Display, Formatter},
     net::{AddrParseError, IpAddr, SocketAddr},
@@ -27,7 +28,7 @@ impl Endpoint {
     pub async fn resolve<P: ConnectionProvider>(
         target: &Target,
         resolver: &AsyncResolver<P>,
-    ) -> AppResult<Vec<Self>> {
+    ) -> AnyResult<Vec<Self>> {
         if let Some(ip) = target
             .host
             .try_parse_ip()

@@ -1,12 +1,13 @@
 use crate::{
     cert::ParsedCertificate,
-    configs::{ConnectionParameters, DefaultParameters},
-    error::{AppResult, ErrorReason},
+    configs::ConnectionParameters,
+    error::ErrorReason,
     store::{Endpoint, Target},
 };
+use anyhow::{Context, Result as AnyResult};
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use std::sync::Arc;
-use tokio::net::TcpStream;
+use std::{sync::Arc, time::Duration};
+use tokio::{net::TcpStream, time::timeout};
 use tokio_rustls::TlsConnector;
 use trust_dns_resolver::TokioAsyncResolver;
 use x509_certificate::X509Certificate;
@@ -14,14 +15,14 @@ use x509_certificate::X509Certificate;
 #[derive(Debug)]
 pub struct Prober {
     resolver: Arc<TokioAsyncResolver>,
-    target_default: DefaultParameters,
+    default_params: ConnectionParameters,
 }
 
 impl Prober {
-    pub fn new(resolver: Arc<TokioAsyncResolver>, target_default: DefaultParameters) -> Self {
+    pub fn new(resolver: Arc<TokioAsyncResolver>, default_params: ConnectionParameters) -> Self {
         Self {
             resolver,
-            target_default,
+            default_params,
         }
     }
 
@@ -29,12 +30,23 @@ impl Prober {
         &mut self,
         target: &Target,
         parameters: &ConnectionParameters,
-    ) -> AppResult<Vec<ProbeResult>> {
-        let endpoints = Endpoint::resolve(target, &self.resolver).await.unwrap();
+    ) -> AnyResult<Vec<ProbeResult>> {
+        let params = parameters.merge(&self.default_params);
+
+        let endpoints = timeout(
+            params.timeout.unwrap_or_else(|| Duration::from_secs(3)),
+            Endpoint::resolve(target, &self.resolver),
+        )
+        .await
+        .with_context(|| "Name resolution timeout")??;
 
         let tasks: FuturesUnordered<_> = endpoints
             .into_iter()
-            .map(|ep| async move { Self::probe_endpoint(&ep, parameters).await })
+            .map(|ep| {
+                // Borrow before `move` block
+                let params_ref = &params;
+                async move { Self::probe_endpoint(&ep, params_ref).await }
+            })
             .collect();
         tasks.try_collect().await
     }
@@ -42,7 +54,7 @@ impl Prober {
     pub async fn probe_endpoint(
         endpoint: &Endpoint,
         parameters: &ConnectionParameters,
-    ) -> AppResult<ProbeResult> {
+    ) -> AnyResult<ProbeResult> {
         let (tls_config, interceptor) = parameters.build_tls_config()?;
         let connector = TlsConnector::from(Arc::new(tls_config));
         let stream = TcpStream::connect(&endpoint.sockaddr).await?;
@@ -91,7 +103,7 @@ mod test {
     #[tokio::test]
     async fn probe_rust_lang_org() {
         let resolver = Arc::new(TokioAsyncResolver::tokio_from_system_conf().unwrap());
-        let mut prober = Prober::new(resolver, DefaultParameters::default());
+        let mut prober = Prober::new(resolver, ConnectionParameters::default());
 
         let target = Target::from_str("www.rust-lang.org:443").unwrap();
         let mut parameters = ConnectionParameters::default();

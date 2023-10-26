@@ -1,7 +1,8 @@
 use crate::{
     cert::{CertificateIdentifier, ParsedCertificate},
-    error::{AppError, AppResult}, configs::DefaultParameters, prober::ProbeResult,
+    prober::ProbeResult,
 };
+use anyhow::{Context, Result as AnyResult};
 use chrono::Utc;
 use std::collections::HashMap;
 use tokio_rustls::rustls::Certificate;
@@ -22,7 +23,7 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn add_pem_certificates(&mut self, buf: &[u8]) -> AppResult<()> {
+    pub fn add_pem_certificates(&mut self, buf: &[u8]) -> AnyResult<()> {
         let certificates = X509Certificate::from_pem_multiple(buf)?
             .into_iter()
             .map(ParsedCertificate);
@@ -36,14 +37,14 @@ impl Store {
     pub fn add_certificates(
         &mut self,
         certificates: impl IntoIterator<Item = ParsedCertificate>,
-    ) -> AppResult<Vec<CertificateIdentifier>> {
+    ) -> AnyResult<Vec<CertificateIdentifier>> {
         let certificates: Vec<(CertificateIdentifier, ParsedCertificate)> = certificates
             .into_iter()
             .map(|cert| {
                 cert.certificate_identifier()
                     .map(|identifier| (identifier, cert))
             })
-            .collect::<AppResult<Vec<_>>>()?;
+            .collect::<AnyResult<Vec<_>>>()?;
 
         let identifiers: Vec<CertificateIdentifier> = certificates
             .into_iter()
@@ -56,19 +57,22 @@ impl Store {
         Ok(identifiers)
     }
 
-    pub fn update_probe_result(&mut self, target: &Target, probe_results: Vec<ProbeResult>) -> AppResult<()> {
+    pub fn update_probe_result(
+        &mut self,
+        target: &Target,
+        probe_results: Vec<ProbeResult>,
+    ) -> AnyResult<()> {
         let ep_states: Vec<EndpointState> = probe_results
             .into_iter()
             .map(|probe| {
-                self
-                    .add_certificates(probe.certificates)
+                self.add_certificates(probe.certificates)
                     .map(|cert_idents| EndpointState {
                         endpoint: probe.endpoint,
                         cert_idents,
                         probe_result: probe.probe_result,
                     })
             })
-            .collect::<AppResult<_>>()?;
+            .collect::<AnyResult<_>>()?;
 
         self.update_endpoints(target, ep_states);
         Ok(())

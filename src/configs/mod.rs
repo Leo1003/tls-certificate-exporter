@@ -1,4 +1,4 @@
-use crate::error::AppResult;
+use anyhow::{Context, Result as AnyResult};
 use config::{Config, Environment as ConfigEnv, File as ConfigFile};
 use duration_str::{deserialize_duration, deserialize_option_duration};
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,7 @@ pub struct GlobalConfig {
 }
 
 impl GlobalConfig {
-    pub fn load_config() -> AppResult<Self> {
+    pub fn load_config() -> AnyResult<Self> {
         let cfg = Config::builder()
             .add_source(ConfigFile::with_name("/etc/tls-certificate-exporter/").required(false))
             .add_source(ConfigFile::with_name("config").required(false))

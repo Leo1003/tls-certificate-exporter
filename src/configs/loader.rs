@@ -1,10 +1,11 @@
-use super::{ConnectionParameters, DefaultParameters};
+use super::ConnectionParameters;
 use crate::{
     certificate_interceptor::CertificateInterceptor,
     configs::{FileContent, GlobalConfig, TargetConfig},
-    error::{AppResult, ErrorReason},
+    error::ErrorReason,
     store::Target,
 };
+use anyhow::{Context, Result as AnyResult};
 use futures::{future::OptionFuture, stream::FuturesUnordered, TryStreamExt};
 use std::sync::Arc;
 use tokio_rustls::rustls::{Certificate, ClientConfig, OwnedTrustAnchor, PrivateKey};
@@ -21,19 +22,19 @@ impl TargetParameter {
         Self { target, parameters }
     }
 
-    pub fn build_tls_config(&self) -> AppResult<(ClientConfig, Arc<CertificateInterceptor>)> {
+    pub fn build_tls_config(&self) -> AnyResult<(ClientConfig, Arc<CertificateInterceptor>)> {
         self.parameters.build_tls_config()
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct RuntimeConfig {
-    pub default_parameters: DefaultParameters,
+    pub default_parameters: ConnectionParameters,
     pub targets: Vec<TargetParameter>,
 }
 
 impl RuntimeConfig {
-    pub async fn load_from_config(config: GlobalConfig) -> AppResult<Self> {
+    pub async fn load_from_config(config: GlobalConfig) -> AnyResult<Self> {
         let tasks = config
             .trusted_anchors
             .into_iter()
@@ -42,10 +43,11 @@ impl RuntimeConfig {
 
         let trusted_anchors = tasks.try_concat().await?;
 
-        let default_parameters = DefaultParameters {
-            timeout: config.default_timeout,
-            interval: config.default_interval,
+        let default_parameters = ConnectionParameters {
+            timeout: Some(config.default_timeout),
+            interval: Some(config.default_interval),
             trusted_anchors,
+            ..Default::default()
         };
 
         let tasks = config
@@ -63,8 +65,8 @@ impl RuntimeConfig {
 }
 
 impl TargetParameter {
-    pub async fn load_from_config(config: TargetConfig) -> AppResult<Self> {
-        let ca = OptionFuture::from(
+    pub async fn load_from_config(config: TargetConfig) -> AnyResult<Self> {
+        let trusted_anchors = OptionFuture::from(
             config
                 .tls_config
                 .ca
@@ -95,7 +97,7 @@ impl TargetParameter {
         let parameters = ConnectionParameters {
             timeout: config.timeout,
             interval: config.interval,
-            ca,
+            trusted_anchors,
             cert,
             key,
             server_name: config.tls_config.server_name,
@@ -106,7 +108,7 @@ impl TargetParameter {
     }
 }
 
-async fn load_certificate(file: FileContent) -> AppResult<Certificate> {
+async fn load_certificate(file: FileContent) -> AnyResult<Certificate> {
     let data = file.load_file().await?;
     let pem = pem::parse(data)?;
 
@@ -116,7 +118,7 @@ async fn load_certificate(file: FileContent) -> AppResult<Certificate> {
     }
 }
 
-async fn load_trusted_anchors(file: FileContent) -> AppResult<Vec<OwnedTrustAnchor>> {
+async fn load_trusted_anchors(file: FileContent) -> AnyResult<Vec<OwnedTrustAnchor>> {
     let data = file.load_file().await?;
     let pems = pem::parse_many(&data)?;
 
@@ -138,7 +140,7 @@ async fn load_trusted_anchors(file: FileContent) -> AppResult<Vec<OwnedTrustAnch
     Ok(anchors)
 }
 
-async fn load_private_key(file: FileContent) -> AppResult<PrivateKey> {
+async fn load_private_key(file: FileContent) -> AnyResult<PrivateKey> {
     let data = file.load_file().await?;
     let pem = pem::parse(data)?;
 
