@@ -43,8 +43,8 @@ fn main() -> AppResult<()> {
 async fn server_loop(app_config: GlobalConfig) -> AppResult<()> {
     let runtime_config = RuntimeConfig::load_from_config(app_config).await?;
     let resolver = Arc::new(AsyncResolver::tokio_from_system_conf()?);
-    let store = Arc::new(RwLock::new(Store::with_config(runtime_config.target_default)));
-    let prober = Prober::new(resolver.clone(), store.clone());
+    let store = Arc::new(RwLock::new(Store::default()));
+    let prober = Prober::new(resolver.clone(), runtime_config.default_parameters);
 
     Ok(())
 }

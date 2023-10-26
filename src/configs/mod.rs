@@ -6,9 +6,11 @@ use std::{default::Default, time::Duration};
 
 mod file_content;
 mod loader;
+mod parameters;
 
 pub use file_content::FileContent;
 pub use loader::*;
+pub use parameters::*;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GlobalConfig {

@@ -1,6 +1,6 @@
 use crate::{
     cert::{CertificateIdentifier, ParsedCertificate},
-    error::{AppError, AppResult}, configs::TargetDefaultConfig,
+    error::{AppError, AppResult}, configs::DefaultParameters, prober::ProbeResult,
 };
 use chrono::Utc;
 use std::collections::HashMap;
@@ -17,20 +17,11 @@ pub use target::{Target, TargetState};
 
 #[derive(Clone, Debug, Default)]
 pub struct Store {
-    pub target_default: TargetDefaultConfig,
     pub target_store: HashMap<Target, TargetState>,
-    //pub endpoint_store: HashMap<Endpoint, EndpointState>,
     pub cert_store: HashMap<CertificateIdentifier, ParsedCertificate>,
 }
 
 impl Store {
-    pub fn with_config(target_default: TargetDefaultConfig) -> Self {
-        Self {
-            target_default,
-            ..Default::default()
-        }
-    }
-
     pub fn add_pem_certificates(&mut self, buf: &[u8]) -> AppResult<()> {
         let certificates = X509Certificate::from_pem_multiple(buf)?
             .into_iter()
@@ -44,18 +35,13 @@ impl Store {
 
     pub fn add_certificates(
         &mut self,
-        certificates: impl IntoIterator<Item = Certificate>,
+        certificates: impl IntoIterator<Item = ParsedCertificate>,
     ) -> AppResult<Vec<CertificateIdentifier>> {
-        let certificates = certificates
+        let certificates: Vec<(CertificateIdentifier, ParsedCertificate)> = certificates
             .into_iter()
-            .map(X509Certificate::from_der)
-            .map(|cert| cert.map(ParsedCertificate))
-            .flat_map(|cert| {
-                cert.map(|cert| {
-                    cert.certificate_identifier()
-                        .map(|identifier| (identifier, cert))
-                })
-                .map_err(AppError::from)
+            .map(|cert| {
+                cert.certificate_identifier()
+                    .map(|identifier| (identifier, cert))
             })
             .collect::<AppResult<Vec<_>>>()?;
 
@@ -70,7 +56,25 @@ impl Store {
         Ok(identifiers)
     }
 
-    pub fn update_probe_result(&mut self, target: &Target, ep_states: Vec<EndpointState>) {
+    pub fn update_probe_result(&mut self, target: &Target, probe_results: Vec<ProbeResult>) -> AppResult<()> {
+        let ep_states: Vec<EndpointState> = probe_results
+            .into_iter()
+            .map(|probe| {
+                self
+                    .add_certificates(probe.certificates)
+                    .map(|cert_idents| EndpointState {
+                        endpoint: probe.endpoint,
+                        cert_idents,
+                        probe_result: probe.probe_result,
+                    })
+            })
+            .collect::<AppResult<_>>()?;
+
+        self.update_endpoints(target, ep_states);
+        Ok(())
+    }
+
+    fn update_endpoints(&mut self, target: &Target, ep_states: Vec<EndpointState>) {
         let target_state = TargetState {
             endpoints: ep_states,
             last_probe: Some(Utc::now()),

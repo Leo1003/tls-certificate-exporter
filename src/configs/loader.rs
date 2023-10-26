@@ -1,96 +1,34 @@
+use super::{ConnectionParameters, DefaultParameters};
 use crate::{
     certificate_interceptor::CertificateInterceptor,
     configs::{FileContent, GlobalConfig, TargetConfig},
-    error::{AppError, AppResult, ErrorReason},
+    error::{AppResult, ErrorReason},
     store::Target,
 };
 use futures::{future::OptionFuture, stream::FuturesUnordered, TryStreamExt};
-use std::{str::FromStr, sync::Arc, time::Duration};
-use tokio_rustls::rustls::{
-    Certificate, ClientConfig, OwnedTrustAnchor, PrivateKey, RootCertStore,
-};
+use std::sync::Arc;
+use tokio_rustls::rustls::{Certificate, ClientConfig, OwnedTrustAnchor, PrivateKey};
 use webpki::TrustAnchor;
-
-#[derive(Clone, Debug)]
-pub struct TargetDefaultConfig {
-    pub timeout: Duration,
-    pub interval: Duration,
-    pub trusted_anchors: Vec<OwnedTrustAnchor>,
-}
-
-impl Default for TargetDefaultConfig {
-    fn default() -> Self {
-        Self {
-            timeout: Duration::from_secs(3),
-            interval: Duration::from_secs(600),
-            trusted_anchors: Default::default(),
-        }
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct TargetParameter {
     pub target: Target,
-
-    pub timeout: Option<Duration>,
-
-    pub interval: Option<Duration>,
-
-    pub ca: Vec<OwnedTrustAnchor>,
-
-    pub cert: Option<Certificate>,
-
-    pub key: Option<PrivateKey>,
-
-    pub server_name: Option<String>,
-
-    pub insecure_skip_verify: bool,
+    pub parameters: ConnectionParameters,
 }
 
 impl TargetParameter {
-    pub fn build_tls_config(&self) -> AppResult<(ClientConfig, Arc<CertificateInterceptor>)> {
-        let builder = ClientConfig::builder().with_safe_defaults();
-
-        let root_certs = RootCertStore {
-            roots: self.ca.clone(),
-        };
-
-        let interceptor = Arc::new(CertificateInterceptor::new(
-            root_certs,
-            self.insecure_skip_verify,
-        ));
-
-        let builder = builder.with_custom_certificate_verifier(interceptor.clone());
-        let config = if let Some((cert, key)) = self.cert.as_ref().zip(self.key.as_ref()) {
-            builder.with_client_auth_cert(vec![cert.clone()], key.clone())?
-        } else {
-            builder.with_no_client_auth()
-        };
-
-        Ok((config, interceptor))
+    pub fn new(target: Target, parameters: ConnectionParameters) -> Self {
+        Self { target, parameters }
     }
-}
 
-impl FromStr for TargetParameter {
-    type Err = AppError;
-
-    fn from_str(target: &str) -> Result<Self, Self::Err> {
-        Ok(Self {
-            target: target.parse()?,
-            timeout: Default::default(),
-            interval: Default::default(),
-            ca: Default::default(),
-            cert: Default::default(),
-            key: Default::default(),
-            server_name: Default::default(),
-            insecure_skip_verify: Default::default(),
-        })
+    pub fn build_tls_config(&self) -> AppResult<(ClientConfig, Arc<CertificateInterceptor>)> {
+        self.parameters.build_tls_config()
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct RuntimeConfig {
-    pub target_default: TargetDefaultConfig,
+    pub default_parameters: DefaultParameters,
     pub targets: Vec<TargetParameter>,
 }
 
@@ -104,7 +42,7 @@ impl RuntimeConfig {
 
         let trusted_anchors = tasks.try_concat().await?;
 
-        let target_default = TargetDefaultConfig {
+        let default_parameters = DefaultParameters {
             timeout: config.default_timeout,
             interval: config.default_interval,
             trusted_anchors,
@@ -118,7 +56,7 @@ impl RuntimeConfig {
         let targets: Vec<TargetParameter> = tasks.try_collect().await?;
 
         Ok(Self {
-            target_default,
+            default_parameters,
             targets,
         })
     }
@@ -154,8 +92,7 @@ impl TargetParameter {
         .await
         .transpose()?;
 
-        Ok(Self {
-            target: config.endpoint.parse()?,
+        let parameters = ConnectionParameters {
             timeout: config.timeout,
             interval: config.interval,
             ca,
@@ -163,7 +100,9 @@ impl TargetParameter {
             key,
             server_name: config.tls_config.server_name,
             insecure_skip_verify: config.tls_config.insecure_skip_verify,
-        })
+        };
+
+        Ok(Self::new(config.endpoint.parse()?, parameters))
     }
 }
 
