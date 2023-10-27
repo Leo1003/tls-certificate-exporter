@@ -43,11 +43,14 @@ impl RuntimeConfig {
 
         let trusted_anchors = tasks.try_concat().await?;
 
-        let default_parameters = ConnectionParameters {
+        let mut default_parameters = ConnectionParameters {
             timeout: Some(config.default_timeout),
             interval: Some(config.default_interval),
             trusted_anchors,
             ..Default::default()
+        };
+        if let Err(e) = default_parameters.load_system_roots() {
+            warn!("Failed to load CA certificates from system: {}", e);
         };
 
         let tasks = config

@@ -31,7 +31,7 @@ impl Prober {
     }
 
     pub async fn probe(
-        &mut self,
+        &self,
         target: &Target,
         parameters: &ConnectionParameters,
     ) -> AnyResult<Vec<ProbeResult>> {
@@ -113,7 +113,7 @@ mod test {
     #[tokio::test]
     async fn probe_rust_lang_org() {
         let resolver = Arc::new(TokioAsyncResolver::tokio_from_system_conf().unwrap());
-        let mut prober = Prober::new(resolver, ConnectionParameters::default());
+        let prober = Prober::new(resolver, ConnectionParameters::default());
 
         let target = Target::from_str("www.rust-lang.org:443").unwrap();
         let mut parameters = ConnectionParameters::default();

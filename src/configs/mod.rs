@@ -28,8 +28,10 @@ pub struct GlobalConfig {
     )]
     pub default_interval: Duration,
 
+    #[serde(default)]
     pub targets: Vec<TargetConfig>,
 
+    #[serde(default)]
     pub trusted_anchors: Vec<FileContent>,
 }
 
@@ -72,14 +74,20 @@ pub struct TargetConfig {
     pub timeout: Option<Duration>,
     #[serde(default, deserialize_with = "deserialize_option_duration")]
     pub interval: Option<Duration>,
+    #[serde(default)]
     pub tls_config: TlsConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TlsConfig {
+    #[serde(default)]
     pub ca: Option<FileContent>,
+    #[serde(default)]
     pub cert: Option<FileContent>,
+    #[serde(default)]
     pub key: Option<FileContent>,
+    #[serde(default)]
     pub server_name: Option<String>,
+    #[serde(default)]
     pub insecure_skip_verify: bool,
 }

@@ -1,10 +1,12 @@
 #[macro_use]
 extern crate serde_with;
+#[macro_use]
+extern crate tracing;
 
 use anyhow::{Context, Result as AnyResult};
 use chrono::Utc;
 use configs::{ConnectionParameters, RuntimeConfig, DEFAULT_INTERVAL};
-use futures::stream::FuturesUnordered;
+use futures::{stream::FuturesUnordered, StreamExt, TryStreamExt};
 use prober::Prober;
 use store::{Store, Target, TargetState};
 use tokio::{sync::RwLock, time::sleep};
@@ -48,7 +50,10 @@ async fn server_loop(app_config: GlobalConfig) -> AnyResult<()> {
     let store = Arc::new(RwLock::new(Store::with_default_params(
         runtime_config.default_parameters.clone(),
     )));
-    let prober = Prober::new(resolver.clone(), runtime_config.default_parameters.clone());
+    let prober = Arc::new(Prober::new(
+        resolver.clone(),
+        runtime_config.default_parameters.clone(),
+    ));
 
     let mut store_lock = store.write().await;
     for targets in runtime_config.targets {
@@ -58,26 +63,39 @@ async fn server_loop(app_config: GlobalConfig) -> AnyResult<()> {
 
     loop {
         let wait = store.read().await.wait_duration();
+        debug!("Sleep for: {}ms", wait.as_millis());
         sleep(wait).await;
 
-        let store_lock = store.read().await;
-        let targets: Vec<(Target, ConnectionParameters)> = store_lock
-            .target_store
-            .iter()
-            .filter(|(target, state)| {
-                if let Some(last_probe) = state.last_probe {
-                    let interval = state
-                        .parameters
-                        .interval
-                        .or(runtime_config.default_parameters.interval)
-                        .unwrap_or(DEFAULT_INTERVAL);
-                    (Utc::now() - last_probe).to_std().unwrap_or(Duration::ZERO) > interval
-                } else {
-                    true
-                }
-            })
+        let targets: Vec<(Target, ConnectionParameters)> = store
+            .read()
+            .await
+            .iter_need_probe()
             .map(|(target, state)| (target.clone(), state.parameters.clone()))
             .collect();
+
+        let mut tasks =
+            FuturesUnordered::from_iter(targets.into_iter().map(|(target, parameters)| {
+                let prober = prober.clone();
+                async move {
+                    let task_result = prober.probe(&target, &parameters).await;
+                    trace!("prober.probe() = {:?}", &task_result);
+                    (target, task_result)
+                }
+            }));
+
+        while let Some((target, task_result)) = tasks.next().await {
+            match task_result {
+                Ok(probe_results) => {
+                    store
+                        .write()
+                        .await
+                        .update_probe_result(&target, probe_results)?;
+                }
+                Err(e) => {
+                    error!("Failed to probe the target: {}", e);
+                }
+            };
+        }
     }
 
     Ok(())

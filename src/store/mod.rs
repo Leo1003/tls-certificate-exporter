@@ -76,6 +76,22 @@ impl Store {
         );
     }
 
+    pub fn iter_need_probe(&self) -> impl Iterator<Item = (&Target, &TargetState)> {
+        self.target_store.iter().filter(|(target, state)| {
+            if let Some(last_probe) = state.last_probe {
+                let interval = state
+                    .parameters
+                    .interval
+                    .or(self.default_params.interval)
+                    .unwrap_or(DEFAULT_INTERVAL);
+
+                (Utc::now() - last_probe).to_std().unwrap_or(Duration::ZERO) > interval
+            } else {
+                true
+            }
+        })
+    }
+
     /// Return the duration should wait to probe targets.
     pub fn wait_duration(&self) -> Duration {
         let now = Utc::now();

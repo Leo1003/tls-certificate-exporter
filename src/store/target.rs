@@ -1,5 +1,8 @@
 use super::EndpointState;
-use crate::{error::{AppError, ErrorReason}, configs::ConnectionParameters};
+use crate::{
+    configs::ConnectionParameters,
+    error::{AppError, ErrorReason},
+};
 use chrono::{DateTime, Utc};
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
