@@ -6,7 +6,6 @@ use crate::{
 use anyhow::{Context, Result as AnyResult};
 use chrono::Utc;
 use std::{collections::HashMap, time::Duration};
-use tokio_rustls::rustls::Certificate;
 use x509_certificate::X509Certificate;
 
 mod endpoint;
@@ -77,7 +76,7 @@ impl Store {
     }
 
     pub fn iter_need_probe(&self) -> impl Iterator<Item = (&Target, &TargetState)> {
-        self.target_store.iter().filter(|(target, state)| {
+        self.target_store.iter().filter(|(_target, state)| {
             if let Some(last_probe) = state.last_probe {
                 let interval = state
                     .parameters

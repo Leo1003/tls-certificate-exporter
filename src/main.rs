@@ -3,17 +3,15 @@ extern crate serde_with;
 #[macro_use]
 extern crate tracing;
 
+use crate::configs::GlobalConfig;
 use anyhow::{Context, Result as AnyResult};
-use chrono::Utc;
-use configs::{ConnectionParameters, RuntimeConfig, DEFAULT_INTERVAL};
-use futures::{stream::FuturesUnordered, StreamExt, TryStreamExt};
+use configs::{ConnectionParameters, RuntimeConfig};
+use futures::{stream::FuturesUnordered, StreamExt};
 use prober::Prober;
-use store::{Store, Target, TargetState};
+use std::{num::NonZeroUsize, sync::Arc};
+use store::{Store, Target};
 use tokio::{sync::RwLock, time::sleep};
 use trust_dns_resolver::AsyncResolver;
-
-use crate::configs::GlobalConfig;
-use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 mod app;
 mod cert;
@@ -52,7 +50,7 @@ async fn server_loop(app_config: GlobalConfig) -> AnyResult<()> {
     )));
     let prober = Arc::new(Prober::new(
         resolver.clone(),
-        runtime_config.default_parameters.clone(),
+        runtime_config.default_parameters,
     ));
 
     let mut store_lock = store.write().await;
