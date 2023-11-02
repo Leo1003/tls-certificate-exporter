@@ -2,14 +2,12 @@ use anyhow::{Context, Result as AnyResult};
 use config::{Config, Environment as ConfigEnv, File as ConfigFile};
 use duration_str::{deserialize_duration, deserialize_option_duration};
 use serde::{Deserialize, Serialize};
-use std::{default::Default, time::Duration};
+use std::{default::Default, time::Duration, ops::Add};
 
 mod file_content;
-mod loader;
 mod parameters;
 
 pub use file_content::FileContent;
-pub use loader::*;
 pub use parameters::*;
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(3);
@@ -22,11 +20,8 @@ pub struct GlobalConfig {
     #[serde(default = "default_timeout", deserialize_with = "deserialize_duration")]
     pub default_timeout: Duration,
 
-    #[serde(
-        default = "default_interval",
-        deserialize_with = "deserialize_duration"
-    )]
-    pub default_interval: Duration,
+    #[serde(default)]
+    pub scheduler: SchedulerConfig,
 
     #[serde(default)]
     pub targets: Vec<TargetConfig>,
@@ -50,11 +45,8 @@ impl GlobalConfig {
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
-            workers: None,
             default_timeout: default_timeout(),
-            default_interval: default_interval(),
-            targets: Vec::new(),
-            trusted_anchors: Vec::new(),
+            ..Default::default()
         }
     }
 }
@@ -69,17 +61,17 @@ const fn default_interval() -> Duration {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TargetConfig {
-    pub endpoint: String,
+    pub target: String,
     #[serde(default, deserialize_with = "deserialize_option_duration")]
     pub timeout: Option<Duration>,
-    #[serde(default, deserialize_with = "deserialize_option_duration")]
-    pub interval: Option<Duration>,
+    #[serde(default, flatten)]
+    pub schedule_config: SchedulerOverrideConfig,
     #[serde(default)]
-    pub tls_config: TlsConfig,
+    pub tls_config: TargetTlsConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct TlsConfig {
+pub struct TargetTlsConfig {
     #[serde(default)]
     pub ca: Option<FileContent>,
     #[serde(default)]
@@ -90,4 +82,47 @@ pub struct TlsConfig {
     pub server_name: Option<String>,
     #[serde(default)]
     pub insecure_skip_verify: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SchedulerConfig {
+    #[serde(
+        default = "default_interval",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub interval: Duration,
+}
+
+impl Default for SchedulerConfig {
+    fn default() -> Self {
+        Self {
+            interval: default_interval(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct SchedulerOverrideConfig {
+    #[serde(default, deserialize_with = "deserialize_option_duration")]
+    pub interval: Option<Duration>,
+}
+
+impl Add<&SchedulerConfig> for &SchedulerOverrideConfig {
+    type Output = SchedulerConfig;
+
+    fn add(self, rhs: &SchedulerConfig) -> Self::Output {
+        SchedulerConfig {
+            interval: self.interval.unwrap_or(rhs.interval),
+        }
+    }
+}
+
+impl Add<&SchedulerOverrideConfig> for &SchedulerOverrideConfig {
+    type Output = SchedulerOverrideConfig;
+
+    fn add(self, rhs: &SchedulerOverrideConfig) -> Self::Output {
+        SchedulerOverrideConfig {
+            interval: self.interval.or(rhs.interval),
+        }
+    }
 }

@@ -5,17 +5,17 @@ extern crate tracing;
 
 use crate::configs::GlobalConfig;
 use anyhow::{Context, Result as AnyResult};
-use configs::{ConnectionParameters, RuntimeConfig};
-use futures::{stream::FuturesUnordered, StreamExt};
+use components::ProbeScheduler;
+use configs::ConnectionParameters;
 use prober::Prober;
 use std::{num::NonZeroUsize, sync::Arc};
 use store::{Store, Target};
 use tokio::{sync::RwLock, time::sleep};
 use trust_dns_resolver::AsyncResolver;
 
-mod app;
 mod cert;
 mod certificate_interceptor;
+mod components;
 mod configs;
 mod error;
 mod prober;
@@ -43,58 +43,20 @@ fn main() -> AnyResult<()> {
 }
 
 async fn server_loop(app_config: GlobalConfig) -> AnyResult<()> {
-    let runtime_config = RuntimeConfig::load_from_config(app_config).await?;
+    let default_params = ConnectionParameters::load_from_global_config(&app_config).await?;
+
     let resolver = Arc::new(AsyncResolver::tokio_from_system_conf()?);
-    let store = Arc::new(RwLock::new(Store::with_default_params(
-        runtime_config.default_parameters.clone(),
-    )));
-    let prober = Arc::new(Prober::new(
-        resolver.clone(),
-        runtime_config.default_parameters,
-    ));
+    let store = Arc::new(RwLock::new(Store::default()));
+    let prober = Arc::new(Prober::new(resolver.clone(), default_params));
 
-    let mut store_lock = store.write().await;
-    for targets in runtime_config.targets {
-        store_lock.insert_target(targets.target, targets.parameters);
+    let mut scheduler =
+        ProbeScheduler::new(prober.clone(), store.clone(), app_config.scheduler.clone());
+
+    for target_config in &app_config.targets {
+        scheduler.load_from_target_config(target_config).await?;
     }
-    drop(store_lock);
 
-    loop {
-        let wait = store.read().await.wait_duration();
-        debug!("Sleep for: {}ms", wait.as_millis());
-        sleep(wait).await;
 
-        let targets: Vec<(Target, ConnectionParameters)> = store
-            .read()
-            .await
-            .iter_need_probe()
-            .map(|(target, state)| (target.clone(), state.parameters.clone()))
-            .collect();
-
-        let mut tasks =
-            FuturesUnordered::from_iter(targets.into_iter().map(|(target, parameters)| {
-                let prober = prober.clone();
-                async move {
-                    let task_result = prober.probe(&target, &parameters).await;
-                    trace!("prober.probe() = {:?}", &task_result);
-                    (target, task_result)
-                }
-            }));
-
-        while let Some((target, task_result)) = tasks.next().await {
-            match task_result {
-                Ok(probe_results) => {
-                    store
-                        .write()
-                        .await
-                        .update_probe_result(&target, probe_results)?;
-                }
-                Err(e) => {
-                    error!("Failed to probe the target: {}", e);
-                }
-            };
-        }
-    }
 
     Ok(())
 }
