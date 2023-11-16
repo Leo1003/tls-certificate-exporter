@@ -57,6 +57,6 @@ trust-dns-resolver = { version = "0.23.0", features = [
     "dnssec-ring",
 ] }
 webpki-roots = "0.25.2"
-x509-certificate = "0.21.0"
+x509-certificate = "0.23.0"
 
 [dev-dependencies]
