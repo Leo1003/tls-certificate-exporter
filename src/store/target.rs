@@ -43,4 +43,5 @@ pub struct TargetState {
     pub conn_params: ConnectionParameters,
     pub schedule_config: SchedulerOverrideConfig,
     pub last_probe: Option<DateTime<Utc>>,
+    pub next_probe: Option<DateTime<Utc>>,
 }

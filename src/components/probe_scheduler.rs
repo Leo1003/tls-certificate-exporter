@@ -6,9 +6,9 @@ use crate::{
     prober::Prober,
     store::{Store, Target, TargetState},
 };
-use futures::prelude::*;
 use anyhow::Result as AnyResult;
 use chrono::Utc;
+use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::{sync::RwLock, time::sleep};
@@ -58,11 +58,8 @@ impl ProbeScheduler {
 
     pub fn iter_need_probe(&self) -> impl Iterator<Item = (&Target, &TargetState)> {
         self.target_store.iter().filter(|(_target, state)| {
-            if let Some(last_probe) = state.last_probe {
-                let config = &state.schedule_config + &self.config;
-                let interval = config.interval;
-
-                (Utc::now() - last_probe).to_std().unwrap_or(Duration::ZERO) > interval
+            if let Some(next_probe) = state.next_probe {
+                Utc::now() >= next_probe
             } else {
                 true
             }
@@ -76,11 +73,8 @@ impl ProbeScheduler {
         self.target_store
             .values()
             .fold(DEFAULT_INTERVAL, |dura, v| {
-                let nextdura = if let Some(last_probe) = v.last_probe {
-                    let config = &v.schedule_config + &self.config;
-
-                    let nextprobe = last_probe + config.interval;
-                    (nextprobe - now).to_std().unwrap_or(Duration::ZERO)
+                let nextdura = if let Some(next_probe) = v.next_probe {
+                    (next_probe - now).to_std().unwrap_or(Duration::ZERO)
                 } else {
                     Duration::ZERO
                 };
@@ -89,7 +83,7 @@ impl ProbeScheduler {
             })
     }
 
-    pub async fn run(self: Arc<Self>) -> AnyResult<()> {
+    pub async fn run(&mut self) -> AnyResult<()> {
         loop {
             let wait = self.wait_duration();
             debug!("Sleep for: {}ms", wait.as_millis());
@@ -111,15 +105,30 @@ impl ProbeScheduler {
                 }));
 
             while let Some((target, task_result)) = tasks.next().await {
+                let state = self.target_store.get_mut(&target);
+
                 match task_result {
                     Ok(probe_results) => {
                         self.store
                             .write()
                             .await
                             .update_probe_result(&target, probe_results)?;
+
+                        if let Some(state) = state {
+                            let config = &state.schedule_config + &self.config;
+                            state.last_probe = Some(Utc::now());
+                            state.next_probe = Some(Utc::now() + config.interval);
+                        }
                     }
                     Err(e) => {
                         error!("Failed to probe the target: {}", e);
+
+                        if let Some(state) = state {
+                            // TODO: Add backoff interval config
+                            let _config = &state.schedule_config + &self.config;
+                            state.last_probe = Some(Utc::now());
+                            state.next_probe = Some(Utc::now() + Duration::from_secs(20));
+                        }
                     }
                 };
             }

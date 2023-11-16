@@ -2,7 +2,7 @@ use anyhow::{Context, Result as AnyResult};
 use config::{Config, Environment as ConfigEnv, File as ConfigFile};
 use duration_str::{deserialize_duration, deserialize_option_duration};
 use serde::{Deserialize, Serialize};
-use std::{default::Default, time::Duration, ops::Add};
+use std::{default::Default, ops::Add, time::Duration};
 
 mod file_content;
 mod parameters;
@@ -45,8 +45,11 @@ impl GlobalConfig {
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
+            workers: Default::default(),
             default_timeout: default_timeout(),
-            ..Default::default()
+            scheduler: Default::default(),
+            targets: Default::default(),
+            trusted_anchors: Default::default(),
         }
     }
 }

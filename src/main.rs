@@ -10,7 +10,7 @@ use configs::ConnectionParameters;
 use prober::Prober;
 use std::{num::NonZeroUsize, sync::Arc};
 use store::{Store, Target};
-use tokio::{sync::RwLock, time::sleep};
+use tokio::sync::{Mutex, RwLock};
 use trust_dns_resolver::AsyncResolver;
 
 mod cert;
@@ -56,7 +56,12 @@ async fn server_loop(app_config: GlobalConfig) -> AnyResult<()> {
         scheduler.load_from_target_config(target_config).await?;
     }
 
+    let scheduler = Arc::new(Mutex::new(scheduler));
+    let scheduler_clone = scheduler.clone();
 
+    let scheduler_handle = tokio::spawn(async move { scheduler_clone.lock().await.run().await });
+
+    tokio::join!(scheduler_handle);
 
     Ok(())
 }
