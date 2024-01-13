@@ -1,21 +1,19 @@
 use super::{FileContent, GlobalConfig, TargetConfig};
 use crate::{certificate_interceptor::CertificateInterceptor, error::ErrorReason};
 use anyhow::{Context, Result as AnyResult};
-use futures::prelude::*;
-use futures::{future::OptionFuture, stream::FuturesUnordered};
-use std::{sync::Arc, time::Duration};
-use tokio_rustls::rustls::{
-    Certificate, ClientConfig, OwnedTrustAnchor, PrivateKey, RootCertStore,
-};
-use webpki::TrustAnchor;
+use futures::{future::OptionFuture, prelude::*, stream::FuturesUnordered};
+use rustls_pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, TrustAnchor};
+use std::{sync::Arc, time::Duration, io::Cursor};
+use tokio_rustls::rustls::{ClientConfig, RootCertStore};
+use super::private_key::PrivateKey;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ConnectionParameters {
     pub timeout: Option<Duration>,
 
-    pub trusted_anchors: Vec<OwnedTrustAnchor>,
+    pub trusted_anchors: RootCertStore,
 
-    pub cert: Option<Certificate>,
+    pub certs: Vec<CertificateDer<'static>>,
 
     pub key: Option<PrivateKey>,
 
@@ -24,22 +22,39 @@ pub struct ConnectionParameters {
     pub insecure_skip_verify: bool,
 }
 
+impl Default for ConnectionParameters {
+    fn default() -> Self {
+        Self {
+            timeout: None,
+            trusted_anchors: RootCertStore::empty(),
+            certs: Vec::new(),
+            key: None,
+            server_name: None,
+            insecure_skip_verify: false,
+        }
+    }
+}
+
 impl ConnectionParameters {
     pub fn build_tls_config(&self) -> AnyResult<(ClientConfig, Arc<CertificateInterceptor>)> {
-        let builder = ClientConfig::builder().with_safe_defaults();
+        let builder = ClientConfig::builder();
 
-        let root_certs = RootCertStore {
-            roots: self.trusted_anchors.clone(),
-        };
+        let root_certs = Arc::new(self.trusted_anchors.clone());
 
         let interceptor = Arc::new(CertificateInterceptor::new(
             root_certs,
             self.insecure_skip_verify,
         ));
 
-        let builder = builder.with_custom_certificate_verifier(interceptor.clone());
-        let config = if let Some((cert, key)) = self.cert.as_ref().zip(self.key.as_ref()) {
-            builder.with_client_auth_cert(vec![cert.clone()], key.clone())?
+        let builder = builder
+            .dangerous()
+            .with_custom_certificate_verifier(interceptor.clone());
+        let config = if !self.certs.is_empty() {
+            if let Some(key) = self.key.as_ref() {
+                builder.with_client_auth_cert(self.certs.clone(), key.clone_key())?
+            } else {
+                return Err(ErrorReason::MissingPrivateKey.into());
+            }
         } else {
             builder.with_no_client_auth()
         };
@@ -61,30 +76,19 @@ impl ConnectionParameters {
     }
 
     pub fn load_certificate(&mut self, der: &[u8]) -> AnyResult<()> {
-        let ta = TrustAnchor::try_from_cert_der(der)?;
-        self.trusted_anchors
-            .push(OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            ));
+        self.trusted_anchors.add(der.into())?;
         Ok(())
     }
 
     pub fn load_webpki_roots(&mut self) {
         self.trusted_anchors
-            .extend(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-                OwnedTrustAnchor::from_subject_spki_name_constraints(
-                    ta.subject,
-                    ta.spki,
-                    ta.name_constraints,
-                )
-            }));
+            .roots
+            .extend_from_slice(webpki_roots::TLS_SERVER_ROOTS);
     }
 
     pub fn load_system_roots(&mut self) -> AnyResult<()> {
         for cert in rustls_native_certs::load_native_certs()? {
-            self.load_certificate(&cert.0)?;
+            self.trusted_anchors.add(cert)?;
         }
         Ok(())
     }
@@ -94,14 +98,19 @@ impl ConnectionParameters {
             .trusted_anchors
             .clone()
             .into_iter()
-            .map(|file| async { load_trusted_anchors(file).await })
+            .map(|file| async { load_certificates(file).await })
             .collect::<FuturesUnordered<_>>();
 
         let trusted_anchors = tasks.try_concat().await?;
 
+        let mut root_store = RootCertStore::empty();
+        for cert in trusted_anchors {
+            root_store.add(cert)?;
+        }
+
         let mut default_parameters = ConnectionParameters {
             timeout: Some(config.default_timeout),
-            trusted_anchors,
+            trusted_anchors: root_store,
             ..Default::default()
         };
         if let Err(e) = default_parameters.load_system_roots() {
@@ -117,21 +126,27 @@ impl ConnectionParameters {
                 .tls_config
                 .ca
                 .clone()
-                .map(|file| async { load_trusted_anchors(file).await }),
+                .map(|file| async { load_certificates(file).await }),
         )
         .await
         .transpose()?
         .unwrap_or_default();
 
-        let cert = OptionFuture::from(
+        let mut root_store = RootCertStore::empty();
+        for cert in trusted_anchors {
+            root_store.add(cert)?;
+        }
+
+        let certs = OptionFuture::from(
             target_config
                 .tls_config
                 .cert
                 .clone()
-                .map(|file| async { load_certificate(file).await }),
+                .map(|file| async { load_certificates(file).await }),
         )
         .await
-        .transpose()?;
+        .transpose()?
+        .unwrap_or_default();
 
         let key = OptionFuture::from(
             target_config
@@ -145,8 +160,8 @@ impl ConnectionParameters {
 
         Ok(Self {
             timeout: target_config.timeout,
-            trusted_anchors,
-            cert,
+            trusted_anchors: root_store,
+            certs,
             key,
             server_name: target_config.tls_config.server_name.clone(),
             insecure_skip_verify: target_config.tls_config.insecure_skip_verify,
@@ -154,44 +169,15 @@ impl ConnectionParameters {
     }
 }
 
-async fn load_certificate(file: FileContent) -> AnyResult<Certificate> {
+async fn load_certificates(file: FileContent) -> AnyResult<Vec<CertificateDer<'static>>> {
     let data = file.load_file().await?;
-    let pem = pem::parse(data)?;
-
-    match pem.tag() {
-        "CERTIFICATE" => Ok(Certificate(pem.into_contents())),
-        _ => Err(ErrorReason::InvalidPemTag.into()),
-    }
-}
-
-async fn load_trusted_anchors(file: FileContent) -> AnyResult<Vec<OwnedTrustAnchor>> {
-    let data = file.load_file().await?;
-    let pems = pem::parse_many(&data)?;
-
-    let mut anchors = Vec::new();
-    for pem in pems {
-        match pem.tag() {
-            "CERTIFICATE" => {
-                let cert = TrustAnchor::try_from_cert_der(pem.contents())?;
-                anchors.push(OwnedTrustAnchor::from_subject_spki_name_constraints(
-                    cert.subject,
-                    cert.spki,
-                    cert.name_constraints,
-                ));
-            }
-            _ => return Err(ErrorReason::InvalidPemTag.into()),
-        }
-    }
-
-    Ok(anchors)
+    let mut buf = Cursor::new(data);
+    let pems = rustls_pemfile::certs(&mut buf)
+        .collect::<Result<Vec<_>, std::io::Error>>()?;
+    Ok(pems)
 }
 
 async fn load_private_key(file: FileContent) -> AnyResult<PrivateKey> {
     let data = file.load_file().await?;
-    let pem = pem::parse(data)?;
-
-    match pem.tag() {
-        "PRIVATE KEY" => Ok(PrivateKey(pem.into_contents())),
-        _ => Err(ErrorReason::InvalidPemTag.into()),
-    }
+    PrivateKey::load_from_pem(&data)
 }

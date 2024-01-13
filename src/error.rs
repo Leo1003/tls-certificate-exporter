@@ -63,6 +63,8 @@ pub enum ErrorReason {
     InvalidEndpoint,
     #[error("Invalid PEM tag")]
     InvalidPemTag,
+    #[error("Missing private key")]
+    MissingPrivateKey,
     #[error("Unknown error")]
     Unknown,
 }

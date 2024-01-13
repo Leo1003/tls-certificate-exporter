@@ -1,11 +1,11 @@
 use crate::error::ErrorReason;
 use anyhow::{Context, Result as AnyResult};
+use rustls_pki_types::ServerName;
 use std::{
     fmt::{Display, Formatter},
     net::{AddrParseError, IpAddr, SocketAddr},
     str::FromStr,
 };
-use tokio_rustls::rustls::ServerName;
 use trust_dns_resolver::{name_server::ConnectionProvider, AsyncResolver, TryParseIp};
 
 use super::target::Target;
@@ -13,7 +13,7 @@ use super::target::Target;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Endpoint {
     pub sockaddr: SocketAddr,
-    pub server_name: ServerName,
+    pub server_name: ServerName<'static>,
 }
 
 impl Endpoint {
@@ -36,7 +36,7 @@ impl Endpoint {
         {
             Ok(vec![Self {
                 sockaddr: SocketAddr::new(ip, target.port),
-                server_name: ServerName::IpAddress(ip),
+                server_name: ServerName::IpAddress(ip.into()),
             }])
         } else {
             let server_name = ServerName::try_from(target.host.as_str())
@@ -47,7 +47,7 @@ impl Endpoint {
                 .into_iter()
                 .map(|ip| Self {
                     sockaddr: SocketAddr::new(ip, target.port),
-                    server_name: server_name.clone(),
+                    server_name: server_name.to_owned(),
                 })
                 .collect())
         }
@@ -68,7 +68,7 @@ impl From<SocketAddr> for Endpoint {
     fn from(sockaddr: SocketAddr) -> Self {
         Self {
             sockaddr,
-            server_name: ServerName::IpAddress(sockaddr.ip()),
+            server_name: ServerName::IpAddress(sockaddr.ip().into()),
         }
     }
 }

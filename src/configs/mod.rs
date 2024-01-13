@@ -6,6 +6,7 @@ use std::{default::Default, ops::Add, time::Duration};
 
 mod file_content;
 mod parameters;
+mod private_key;
 
 pub use file_content::FileContent;
 pub use parameters::*;
