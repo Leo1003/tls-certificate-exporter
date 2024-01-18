@@ -6,13 +6,13 @@ use crate::{
 };
 use anyhow::{Context, Result as AnyResult};
 use futures::{stream::FuturesUnordered, TryStreamExt};
+use hickory_resolver::TokioAsyncResolver;
 use std::{
     io::{Error as IoError, ErrorKind as IoErrorKind},
     sync::Arc,
 };
 use tokio::{net::TcpStream, time::timeout};
 use tokio_rustls::TlsConnector;
-use trust_dns_resolver::TokioAsyncResolver;
 use x509_certificate::X509Certificate;
 
 #[derive(Debug)]
@@ -111,8 +111,8 @@ pub struct ProbeResult {
 mod test {
     use super::*;
     use crate::store::Target;
+    use hickory_resolver::TokioAsyncResolver;
     use std::str::FromStr;
-    use trust_dns_resolver::TokioAsyncResolver;
 
     #[tokio::test]
     async fn probe_rust_lang_org() {

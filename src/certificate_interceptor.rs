@@ -1,6 +1,6 @@
 use rustls_pki_types::{CertificateDer, ServerName, UnixTime};
-use tokio::sync::OnceCell;
 use std::{fmt::Debug, sync::Arc};
+use tokio::sync::OnceCell;
 use tokio_rustls::rustls::{
     client::{
         danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier},

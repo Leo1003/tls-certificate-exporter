@@ -5,11 +5,11 @@ use crate::configs::GlobalConfig;
 use anyhow::Result as AnyResult;
 use components::{MetricsExporter, ProbeScheduler};
 use configs::ConnectionParameters;
+use hickory_resolver::AsyncResolver;
 use prober::Prober;
 use std::{num::NonZeroUsize, sync::Arc};
 use store::Store;
 use tokio::{sync::RwLock, task::JoinSet};
-use trust_dns_resolver::AsyncResolver;
 
 mod cert;
 mod certificate_interceptor;
