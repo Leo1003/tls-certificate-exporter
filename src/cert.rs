@@ -1,8 +1,11 @@
-use anyhow::{Context, Result as AnyResult};
+use anyhow::Result as AnyResult;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use num_bigint::BigUint;
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    ops::Deref,
+};
 use x509_certificate::{asn1time::Time, X509Certificate};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -42,6 +45,14 @@ impl ParsedCertificate {
             serial_number: self.serial_number(),
             fingerprint: self.0.sha256_fingerprint()?.as_ref().to_owned(),
         })
+    }
+}
+
+impl Deref for ParsedCertificate {
+    type Target = X509Certificate;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

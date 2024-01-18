@@ -1,11 +1,11 @@
+use super::private_key::PrivateKey;
 use super::{FileContent, GlobalConfig, TargetConfig};
 use crate::{certificate_interceptor::CertificateInterceptor, error::ErrorReason};
 use anyhow::{Context, Result as AnyResult};
 use futures::{future::OptionFuture, prelude::*, stream::FuturesUnordered};
-use rustls_pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, TrustAnchor};
-use std::{sync::Arc, time::Duration, io::Cursor};
+use rustls_pki_types::{CertificateDer, TrustAnchor};
+use std::{io::Cursor, sync::Arc, time::Duration};
 use tokio_rustls::rustls::{ClientConfig, RootCertStore};
-use super::private_key::PrivateKey;
 
 #[derive(Clone, Debug)]
 pub struct ConnectionParameters {
@@ -172,8 +172,7 @@ impl ConnectionParameters {
 async fn load_certificates(file: FileContent) -> AnyResult<Vec<CertificateDer<'static>>> {
     let data = file.load_file().await?;
     let mut buf = Cursor::new(data);
-    let pems = rustls_pemfile::certs(&mut buf)
-        .collect::<Result<Vec<_>, std::io::Error>>()?;
+    let pems = rustls_pemfile::certs(&mut buf).collect::<Result<Vec<_>, std::io::Error>>()?;
     Ok(pems)
 }
 

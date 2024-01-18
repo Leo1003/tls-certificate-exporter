@@ -5,12 +5,15 @@ extern crate tracing;
 
 use crate::configs::GlobalConfig;
 use anyhow::{Context, Result as AnyResult};
-use components::ProbeScheduler;
+use components::{MetricsExporter, ProbeScheduler};
 use configs::ConnectionParameters;
 use prober::Prober;
 use std::{num::NonZeroUsize, sync::Arc};
 use store::{Store, Target};
-use tokio::sync::{Mutex, RwLock};
+use tokio::{
+    sync::{Mutex, RwLock},
+    task::JoinSet,
+};
 use trust_dns_resolver::AsyncResolver;
 
 mod cert;
@@ -39,10 +42,10 @@ fn main() -> AnyResult<()> {
         .enable_all()
         .build()
         .expect("Failed to bootstrap the Tokio runtime")
-        .block_on(server_loop(app_config))
+        .block_on(async_main(app_config))
 }
 
-async fn server_loop(app_config: GlobalConfig) -> AnyResult<()> {
+async fn async_main(app_config: GlobalConfig) -> AnyResult<()> {
     let default_params = ConnectionParameters::load_from_global_config(&app_config).await?;
 
     let resolver = Arc::new(AsyncResolver::tokio_from_system_conf()?);
@@ -51,17 +54,16 @@ async fn server_loop(app_config: GlobalConfig) -> AnyResult<()> {
 
     let mut scheduler =
         ProbeScheduler::new(prober.clone(), store.clone(), app_config.scheduler.clone());
+    let metrics_exporter = MetricsExporter::new(store.clone())?;
 
     for target_config in &app_config.targets {
         scheduler.load_from_target_config(target_config).await?;
     }
 
-    let scheduler = Arc::new(Mutex::new(scheduler));
-    let scheduler_clone = scheduler.clone();
-
-    let scheduler_handle = tokio::spawn(async move { scheduler_clone.lock().await.run().await });
-
-    tokio::join!(scheduler_handle);
+    let mut set = JoinSet::new();
+    set.spawn(async move { scheduler.run().await });
+    set.spawn(async move { metrics_exporter.run().await });
+    set.join_next().await;
 
     Ok(())
 }
