@@ -1,5 +1,5 @@
 use crate::error::ErrorReason;
-use anyhow::{Context, Result as AnyResult};
+use anyhow::Result as AnyResult;
 use rustls_pki_types::ServerName;
 use std::{
     fmt::{Display, Formatter},
@@ -17,10 +17,12 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
+    #[allow(unused)]
     pub fn address(&self) -> IpAddr {
         self.sockaddr.ip()
     }
 
+    #[allow(unused)]
     pub fn port(&self) -> u16 {
         self.sockaddr.port()
     }
@@ -56,8 +58,12 @@ impl Endpoint {
 
 impl Display for Endpoint {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let ServerName::DnsName(dns) = &self.server_name {
-            write!(f, "{}({})", self.sockaddr, dns.as_ref())
+        if f.alternate() {
+            if let ServerName::DnsName(dns) = &self.server_name {
+                write!(f, "{:#}({})", self.sockaddr, dns.as_ref())
+            } else {
+                write!(f, "{:#}", self.sockaddr)
+            }
         } else {
             write!(f, "{}", self.sockaddr)
         }
