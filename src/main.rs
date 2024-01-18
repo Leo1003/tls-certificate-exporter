@@ -1,19 +1,14 @@
 #[macro_use]
-extern crate serde_with;
-#[macro_use]
 extern crate tracing;
 
 use crate::configs::GlobalConfig;
-use anyhow::{Context, Result as AnyResult};
+use anyhow::Result as AnyResult;
 use components::{MetricsExporter, ProbeScheduler};
 use configs::ConnectionParameters;
 use prober::Prober;
 use std::{num::NonZeroUsize, sync::Arc};
-use store::{Store, Target};
-use tokio::{
-    sync::{Mutex, RwLock},
-    task::JoinSet,
-};
+use store::Store;
+use tokio::{sync::RwLock, task::JoinSet};
 use trust_dns_resolver::AsyncResolver;
 
 mod cert;

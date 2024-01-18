@@ -1,7 +1,7 @@
 use super::private_key::PrivateKey;
 use super::{FileContent, GlobalConfig, TargetConfig};
 use crate::{certificate_interceptor::CertificateInterceptor, error::ErrorReason};
-use anyhow::{Context, Result as AnyResult};
+use anyhow::{Result as AnyResult};
 use futures::{future::OptionFuture, prelude::*, stream::FuturesUnordered};
 use rustls_pki_types::{CertificateDer, TrustAnchor};
 use std::{io::Cursor, sync::Arc, time::Duration};

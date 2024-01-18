@@ -19,8 +19,7 @@ anyhow = "1.0.75"
 backtrace = { version = "0.3.68", optional = true }
 base64 = "0.21.3"
 chrono = "0.4.26"
-config = "0.13.3"
-crossbeam = "0.8.2"
+config = { version = "0.13.3", default-features = false, features = ["yaml", "toml", "json"] }
 dotenvy = "0.15.7"
 duration-str = { version = "0.7.0", default-features = false, features = [
     "serde",
@@ -33,8 +32,9 @@ num-bigint = "0.4.4"
 pem = "3.0.1"
 prometheus = "0.13.3"
 rustls-native-certs = "0.7.0"
-rustls-webpki = "0.102.1"
 rustls-pki-types = "1"
+rustls-pemfile = "2.0.0"
+rustls-webpki = "0.102.1"
 serde = { version = "1.0.184", features = ["derive"] }
 serde_bytes = "0.11.12"
 serde_with = "3.3.0"
@@ -59,7 +59,6 @@ trust-dns-resolver = { version = "0.23.0", features = [
 ] }
 webpki-roots = "0.26.0"
 x509-certificate = "0.23.0"
-rustls-pemfile = "2.0.0"
-axum = "0.7.4"
+axum = { version = "0.7.4", default-features = false, features = ["tokio", "http1", "tower-log", "tracing"] }
 
 [dev-dependencies]

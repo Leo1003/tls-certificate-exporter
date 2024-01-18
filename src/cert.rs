@@ -12,17 +12,8 @@ use x509_certificate::{asn1time::Time, X509Certificate};
 pub struct ParsedCertificate(pub X509Certificate);
 
 impl ParsedCertificate {
-    pub fn common_name(&self) -> Option<String> {
-        self.0.subject_common_name()
-    }
-
-    pub fn issuer_common_name(&self) -> Option<String> {
-        self.0.issuer_common_name()
-    }
-
     pub fn serial_number(&self) -> BigUint {
         let number = &self.0.as_ref().tbs_certificate.serial_number;
-
         BigUint::from_bytes_be(number.as_slice())
     }
 

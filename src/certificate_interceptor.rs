@@ -1,5 +1,5 @@
-use crossbeam::atomic::AtomicCell;
 use rustls_pki_types::{CertificateDer, ServerName, UnixTime};
+use tokio::sync::OnceCell;
 use std::{fmt::Debug, sync::Arc};
 use tokio_rustls::rustls::{
     client::{
@@ -9,10 +9,11 @@ use tokio_rustls::rustls::{
     DigitallySignedStruct, Error as RustlsError, RootCertStore, SignatureScheme,
 };
 
-/// If the certificate has issues, the connect will return Err.
+/// If the certificate has expired, the connect operation will return Err.
 /// Therefore, we need to get the certificates before verifying certificates.
+#[derive(Clone, Debug)]
 pub struct CertificateInterceptor {
-    certificates: AtomicCell<Option<Vec<CertificateDer<'static>>>>,
+    certificates: OnceCell<Vec<CertificateDer<'static>>>,
     verifier: Arc<WebPkiServerVerifier>,
     insecure_skip_verify: bool,
 }
@@ -41,18 +42,8 @@ impl CertificateInterceptor {
         Self::new(Arc::new(root_certs), false)
     }
 
-    pub fn get_certificates(&self) -> Option<Vec<CertificateDer<'static>>> {
+    pub fn get_certificates(&mut self) -> Option<Vec<CertificateDer<'static>>> {
         self.certificates.take()
-    }
-}
-
-impl Debug for CertificateInterceptor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CertificateInterceptor")
-            .field("certificates", &"<Redacted>")
-            .field("verifier", &"<Redacted>")
-            .field("insecure_skip_verify", &self.insecure_skip_verify)
-            .finish()
     }
 }
 
@@ -68,7 +59,7 @@ impl ServerCertVerifier for CertificateInterceptor {
         let mut certs = vec![end_entity.clone().into_owned()];
         certs.extend(intermediates.iter().map(|cert| cert.clone().into_owned()));
 
-        self.certificates.store(Some(certs));
+        self.certificates.set(certs).ok();
 
         if self.insecure_skip_verify {
             Ok(ServerCertVerified::assertion())

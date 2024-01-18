@@ -7,9 +7,8 @@ use crate::{
 use anyhow::{Context, Result as AnyResult};
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use std::{
-    io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult},
+    io::{Error as IoError, ErrorKind as IoErrorKind},
     sync::Arc,
-    time::Duration,
 };
 use tokio::{net::TcpStream, time::timeout};
 use tokio_rustls::TlsConnector;
@@ -59,7 +58,7 @@ impl Prober {
         endpoint: &Endpoint,
         parameters: &ConnectionParameters,
     ) -> AnyResult<ProbeResult> {
-        let (tls_config, interceptor) = parameters.build_tls_config()?;
+        let (tls_config, mut interceptor) = parameters.build_tls_config()?;
         let connector = TlsConnector::from(Arc::new(tls_config));
         let stream = TcpStream::connect(&endpoint.sockaddr).await?;
 
@@ -72,8 +71,13 @@ impl Prober {
             Ok(conn_result) => conn_result.map(|_| ()),
             Err(elapsed) => Err(IoError::new(IoErrorKind::TimedOut, elapsed)),
         };
+        // Drop the connection here to make the interceptor's reference count decrease to 1
+        drop(connector);
 
-        let Some(certificates) = interceptor.get_certificates() else {
+        // The interceptor shall not be copied by `Arc::make_mut()` since the reference count should be 1
+        // Using `Arc::make_mut()` instead of `Arc::get_mut()` is just to simplify the codes
+        let interceptor_inner = Arc::make_mut(&mut interceptor);
+        let Some(certificates) = interceptor_inner.get_certificates() else {
             // Didn't get certificates, might be connection error
             if let Err(err) = conn_result {
                 return Err(err.into());
