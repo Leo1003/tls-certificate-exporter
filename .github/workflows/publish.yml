@@ -55,6 +55,6 @@ jobs:
         with:
           toolchain: stable
       - name: Cargo Login
-        run: cargo login -- ${{ secrets.CARGO_TOKEN }}
+        run: cargo login ${{ secrets.CARGO_TOKEN }}
       - name: Cargo Publish
         run: cargo publish
