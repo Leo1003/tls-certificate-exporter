@@ -26,6 +26,8 @@ jobs:
         run: cargo fmt -- --check
   release-test:
     name: Test for Release
+    needs:
+      - deny-check
     strategy:
       fail-fast: false
       matrix:
