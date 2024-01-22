@@ -121,7 +121,7 @@ impl ProbeScheduler {
                         }
                     }
                     Err(e) => {
-                        error!("Failed to probe the target: {}", e);
+                        error!("Failed to probe the target {}: {}", &target, e);
 
                         if let Some(state) = state {
                             // TODO: Add backoff interval config
