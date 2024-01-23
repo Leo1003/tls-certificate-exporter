@@ -1,4 +1,4 @@
-use anyhow::{Context, Result as AnyResult};
+use anyhow::Result as AnyResult;
 use config::{Config, Environment as ConfigEnv, File as ConfigFile};
 use duration_str::{deserialize_duration, deserialize_option_duration};
 use serde::{Deserialize, Serialize};
@@ -7,10 +7,8 @@ use std::{default::Default, ops::Add, time::Duration};
 mod file_content;
 mod parameters;
 mod private_key;
-mod target_config;
 
 pub use file_content::FileContent;
-pub use target_config::{TargetConfig, TargetTlsConfig};
 pub use parameters::*;
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(3);
@@ -22,12 +20,6 @@ pub struct ApplicationConfig {
 
     #[serde(default = "default_timeout", deserialize_with = "deserialize_duration")]
     pub default_timeout: Duration,
-
-    #[serde(default)]
-    pub scheduler: SchedulerConfig,
-
-    #[serde(default)]
-    pub targets: Vec<TargetConfig>,
 
     #[serde(default)]
     pub trusted_anchors: Vec<FileContent>,
@@ -50,8 +42,6 @@ impl Default for ApplicationConfig {
         Self {
             workers: Default::default(),
             default_timeout: default_timeout(),
-            scheduler: Default::default(),
-            targets: Default::default(),
             trusted_anchors: Default::default(),
         }
     }

@@ -3,21 +3,17 @@ extern crate tracing;
 
 use crate::configs::ApplicationConfig;
 use anyhow::Result as AnyResult;
-use components::{MetricsExporter, ProbeScheduler};
+use components::{MetricsExporter, Prober};
 use configs::ConnectionParameters;
 use hickory_resolver::AsyncResolver;
-use prober::Prober;
 use std::{num::NonZeroUsize, sync::Arc};
-use store::Store;
 use tokio::{sync::RwLock, task::JoinSet};
 
-mod cert;
 mod certificate_interceptor;
 mod components;
 mod configs;
 mod error;
-mod prober;
-mod store;
+mod types;
 
 fn main() -> AnyResult<()> {
     // Load environment variables from the `.env` file
@@ -42,22 +38,13 @@ fn main() -> AnyResult<()> {
 async fn async_main(app_config: ApplicationConfig) -> AnyResult<()> {
     let default_params = ConnectionParameters::load_from_global_config(&app_config).await?;
 
-    let resolver = Arc::new(AsyncResolver::tokio_from_system_conf()?);
-    let store = Arc::new(RwLock::new(Store::default()));
-    let prober = Arc::new(Prober::new(resolver.clone(), default_params));
+    let resolver = AsyncResolver::tokio_from_system_conf()?;
+    let prober = Arc::new(Prober::new(resolver.clone()));
+    let metrics_exporter = MetricsExporter::new()?;
 
-    let mut scheduler =
-        ProbeScheduler::new(prober.clone(), store.clone(), app_config.scheduler.clone());
-    let metrics_exporter = MetricsExporter::new(store.clone())?;
-
-    for target_config in &app_config.targets {
-        scheduler.load_from_target_config(target_config).await?;
-    }
-
-    let mut set = JoinSet::new();
-    set.spawn(async move { scheduler.run().await });
-    set.spawn(async move { metrics_exporter.run().await });
-    set.join_next().await;
+    let mut taskset = JoinSet::new();
+    taskset.spawn(async move { metrics_exporter.run().await });
+    taskset.join_next().await;
 
     Ok(())
 }

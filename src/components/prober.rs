@@ -1,8 +1,8 @@
 use crate::{
-    cert::ParsedCertificate,
+    types::ParsedCertificate,
     configs::{ConnectionParameters, DEFAULT_TIMEOUT},
     error::ErrorReason,
-    store::{Endpoint, Target},
+    types::{Endpoint, Target},
 };
 use anyhow::{Context, Result as AnyResult};
 use futures::{stream::FuturesUnordered, TryStreamExt};
@@ -15,18 +15,14 @@ use tokio::{net::TcpStream, time::timeout};
 use tokio_rustls::TlsConnector;
 use x509_certificate::X509Certificate;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Prober {
-    resolver: Arc<TokioAsyncResolver>,
-    default_params: ConnectionParameters,
+    resolver: TokioAsyncResolver,
 }
 
 impl Prober {
-    pub fn new(resolver: Arc<TokioAsyncResolver>, default_params: ConnectionParameters) -> Self {
-        Self {
-            resolver,
-            default_params,
-        }
+    pub fn new(resolver: TokioAsyncResolver) -> Self {
+        Self { resolver }
     }
 
     pub async fn probe(
@@ -34,10 +30,8 @@ impl Prober {
         target: &Target,
         parameters: &ConnectionParameters,
     ) -> AnyResult<Vec<ProbeResult>> {
-        let params = parameters.merge(&self.default_params);
-
         let endpoints = timeout(
-            params.timeout.unwrap_or(DEFAULT_TIMEOUT),
+            parameters.timeout.unwrap_or(DEFAULT_TIMEOUT),
             Endpoint::resolve(target, &self.resolver),
         )
         .await
@@ -45,11 +39,7 @@ impl Prober {
 
         let tasks: FuturesUnordered<_> = endpoints
             .into_iter()
-            .map(|ep| {
-                // Borrow before `move` block
-                let params_ref = &params;
-                async move { Self::probe_endpoint(&ep, params_ref).await }
-            })
+            .map(|ep| async move { Self::probe_endpoint(&ep, parameters).await })
             .collect();
         tasks.try_collect().await
     }
@@ -110,14 +100,14 @@ pub struct ProbeResult {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::store::Target;
+    use crate::types::Target;
     use hickory_resolver::TokioAsyncResolver;
     use std::str::FromStr;
 
     #[tokio::test]
     async fn probe_rust_lang_org() {
-        let resolver = Arc::new(TokioAsyncResolver::tokio_from_system_conf().unwrap());
-        let prober = Prober::new(resolver, ConnectionParameters::default());
+        let resolver = TokioAsyncResolver::tokio_from_system_conf().unwrap();
+        let prober = Prober::new(resolver);
 
         let target = Target::from_str("www.rust-lang.org:443").unwrap();
         let mut parameters = ConnectionParameters::default();

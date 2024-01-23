@@ -1,5 +1,4 @@
-use super::{Endpoint, Target};
-use crate::cert::CertificateIdentifier;
+use super::{CertificateIdentifier, Endpoint, Target};
 use chrono::{DateTime, Utc};
 
 #[derive(Clone, Debug)]

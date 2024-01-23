@@ -1,5 +1,5 @@
 mod metrics_exporter;
-mod probe_scheduler;
+mod prober;
 
 pub use metrics_exporter::MetricsExporter;
-pub use probe_scheduler::ProbeScheduler;
+pub use prober::Prober;

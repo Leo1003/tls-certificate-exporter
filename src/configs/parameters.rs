@@ -1,4 +1,4 @@
-use super::{private_key::PrivateKey, ApplicationConfig, FileContent, TargetConfig};
+use super::{private_key::PrivateKey, ApplicationConfig, FileContent};
 use crate::{certificate_interceptor::CertificateInterceptor, error::ErrorReason};
 use anyhow::Result as AnyResult;
 use futures::{future::OptionFuture, prelude::*, stream::FuturesUnordered};
@@ -119,53 +119,53 @@ impl ConnectionParameters {
         Ok(default_parameters)
     }
 
-    pub async fn load_from_target_config(target_config: &TargetConfig) -> AnyResult<Self> {
-        let trusted_anchors = OptionFuture::from(
-            target_config
-                .tls_config
-                .ca
-                .clone()
-                .map(|file| async { load_certificates(file).await }),
-        )
-        .await
-        .transpose()?
-        .unwrap_or_default();
+    // pub async fn load_from_target_config(target_config: &TargetConfig) -> AnyResult<Self> {
+    //     let trusted_anchors = OptionFuture::from(
+    //         target_config
+    //             .tls_config
+    //             .ca
+    //             .clone()
+    //             .map(|file| async { load_certificates(file).await }),
+    //     )
+    //     .await
+    //     .transpose()?
+    //     .unwrap_or_default();
 
-        let mut root_store = RootCertStore::empty();
-        for cert in trusted_anchors {
-            root_store.add(cert)?;
-        }
+    //     let mut root_store = RootCertStore::empty();
+    //     for cert in trusted_anchors {
+    //         root_store.add(cert)?;
+    //     }
 
-        let certs = OptionFuture::from(
-            target_config
-                .tls_config
-                .cert
-                .clone()
-                .map(|file| async { load_certificates(file).await }),
-        )
-        .await
-        .transpose()?
-        .unwrap_or_default();
+    //     let certs = OptionFuture::from(
+    //         target_config
+    //             .tls_config
+    //             .cert
+    //             .clone()
+    //             .map(|file| async { load_certificates(file).await }),
+    //     )
+    //     .await
+    //     .transpose()?
+    //     .unwrap_or_default();
 
-        let key = OptionFuture::from(
-            target_config
-                .tls_config
-                .key
-                .clone()
-                .map(|file| async { load_private_key(file).await }),
-        )
-        .await
-        .transpose()?;
+    //     let key = OptionFuture::from(
+    //         target_config
+    //             .tls_config
+    //             .key
+    //             .clone()
+    //             .map(|file| async { load_private_key(file).await }),
+    //     )
+    //     .await
+    //     .transpose()?;
 
-        Ok(Self {
-            timeout: target_config.timeout,
-            trusted_anchors: root_store,
-            certs,
-            key,
-            server_name: target_config.tls_config.server_name.clone(),
-            insecure_skip_verify: target_config.tls_config.insecure_skip_verify,
-        })
-    }
+    //     Ok(Self {
+    //         timeout: target_config.timeout,
+    //         trusted_anchors: root_store,
+    //         certs,
+    //         key,
+    //         server_name: target_config.tls_config.server_name.clone(),
+    //         insecure_skip_verify: target_config.tls_config.insecure_skip_verify,
+    //     })
+    // }
 }
 
 async fn load_certificates(file: FileContent) -> AnyResult<Vec<CertificateDer<'static>>> {
