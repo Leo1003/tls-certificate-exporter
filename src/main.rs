@@ -17,7 +17,6 @@ mod components;
 mod configs;
 mod error;
 mod prober;
-mod state;
 mod store;
 
 fn main() -> AnyResult<()> {
