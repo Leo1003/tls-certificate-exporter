@@ -7,15 +7,17 @@ use std::{default::Default, ops::Add, time::Duration};
 mod file_content;
 mod parameters;
 mod private_key;
+mod target_config;
 
 pub use file_content::FileContent;
+pub use target_config::{TargetConfig, TargetTlsConfig};
 pub use parameters::*;
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(3);
 pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(600);
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct GlobalConfig {
+pub struct ApplicationConfig {
     pub workers: Option<usize>,
 
     #[serde(default = "default_timeout", deserialize_with = "deserialize_duration")]
@@ -31,7 +33,7 @@ pub struct GlobalConfig {
     pub trusted_anchors: Vec<FileContent>,
 }
 
-impl GlobalConfig {
+impl ApplicationConfig {
     pub fn load_config() -> AnyResult<Self> {
         let cfg = Config::builder()
             .add_source(ConfigFile::with_name("/etc/tls-certificate-exporter/").required(false))
@@ -43,7 +45,7 @@ impl GlobalConfig {
     }
 }
 
-impl Default for GlobalConfig {
+impl Default for ApplicationConfig {
     fn default() -> Self {
         Self {
             workers: Default::default(),
@@ -61,31 +63,6 @@ const fn default_timeout() -> Duration {
 
 const fn default_interval() -> Duration {
     DEFAULT_INTERVAL
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct TargetConfig {
-    pub target: String,
-    #[serde(default, deserialize_with = "deserialize_option_duration")]
-    pub timeout: Option<Duration>,
-    #[serde(default, flatten)]
-    pub schedule_config: SchedulerOverrideConfig,
-    #[serde(default)]
-    pub tls_config: TargetTlsConfig,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct TargetTlsConfig {
-    #[serde(default)]
-    pub ca: Option<FileContent>,
-    #[serde(default)]
-    pub cert: Option<FileContent>,
-    #[serde(default)]
-    pub key: Option<FileContent>,
-    #[serde(default)]
-    pub server_name: Option<String>,
-    #[serde(default)]
-    pub insecure_skip_verify: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

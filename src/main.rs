@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate tracing;
 
-use crate::configs::GlobalConfig;
+use crate::configs::ApplicationConfig;
 use anyhow::Result as AnyResult;
 use components::{MetricsExporter, ProbeScheduler};
 use configs::ConnectionParameters;
@@ -25,7 +25,7 @@ fn main() -> AnyResult<()> {
     // Initialize the logger after loading the environment variables
     tracing_subscriber::fmt::init();
 
-    let app_config = GlobalConfig::load_config().expect("Failed to parse configuration files");
+    let app_config = ApplicationConfig::load_config().expect("Failed to parse configuration files");
 
     // Setup async runtime
     let mut runtime_builder = tokio::runtime::Builder::new_multi_thread();
@@ -39,7 +39,7 @@ fn main() -> AnyResult<()> {
         .block_on(async_main(app_config))
 }
 
-async fn async_main(app_config: GlobalConfig) -> AnyResult<()> {
+async fn async_main(app_config: ApplicationConfig) -> AnyResult<()> {
     let default_params = ConnectionParameters::load_from_global_config(&app_config).await?;
 
     let resolver = Arc::new(AsyncResolver::tokio_from_system_conf()?);

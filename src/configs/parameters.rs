@@ -1,5 +1,4 @@
-use super::private_key::PrivateKey;
-use super::{FileContent, GlobalConfig, TargetConfig};
+use super::{private_key::PrivateKey, ApplicationConfig, FileContent, TargetConfig};
 use crate::{certificate_interceptor::CertificateInterceptor, error::ErrorReason};
 use anyhow::Result as AnyResult;
 use futures::{future::OptionFuture, prelude::*, stream::FuturesUnordered};
@@ -93,7 +92,7 @@ impl ConnectionParameters {
         Ok(())
     }
 
-    pub async fn load_from_global_config(config: &GlobalConfig) -> AnyResult<Self> {
+    pub async fn load_from_global_config(config: &ApplicationConfig) -> AnyResult<Self> {
         let tasks = config
             .trusted_anchors
             .clone()
