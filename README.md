@@ -18,3 +18,5 @@ A Prometheus exporter to scrape certificates from remote connections to monitor 
     - [ ] FTP
     - [ ] XMPP
     - [ ] NNTP
+    - [ ] PostgreSQL
+    - [ ] MySQL

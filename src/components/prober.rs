@@ -52,6 +52,8 @@ impl Prober {
         let connector = TlsConnector::from(Arc::new(tls_config));
         let stream = TcpStream::connect(&endpoint.sockaddr).await?;
 
+        // TODO: Handle STARTTLS
+
         let conn_result = match timeout(
             parameters.timeout.unwrap_or(DEFAULT_TIMEOUT),
             connector.connect(endpoint.server_name.clone(), stream),

@@ -1,0 +1,142 @@
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    fs::File,
+    io::{BufReader, Read, Result as IoResult},
+    path::{Path, PathBuf},
+};
+
+use rustls_pki_types::{CertificateDer, PrivateKeyDer};
+use tokio_rustls::rustls::RootCertStore;
+
+#[derive(Debug, Default)]
+pub struct FileStore {
+    data: HashMap<PathBuf, FileData<'static>>,
+}
+
+impl FileStore {
+    fn read_file_data<P>(path: P, file_type: FileType) -> IoResult<FileData<'static>>
+    where
+        P: AsRef<Path>,
+    {
+        let file = File::open(path.as_ref())?;
+        let mut reader = BufReader::new(file);
+
+        let filedata = match file_type {
+            FileType::TrustAnchors => {
+                let certs = rustls_pemfile::certs(&mut reader).collect::<IoResult<Vec<_>>>()?;
+                let mut store = RootCertStore::empty();
+                store.add_parsable_certificates(certs);
+                FileData::TrustAnchors(store)
+            }
+            FileType::Certificates => {
+                let certs = rustls_pemfile::certs(&mut reader).collect::<IoResult<Vec<_>>>()?;
+                if certs.is_empty() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "no certificates found",
+                    ));
+                }
+                FileData::Certificates(certs)
+            }
+            FileType::PrivateKey => {
+                let key = rustls_pemfile::private_key(&mut reader)?;
+                if let Some(key) = key {
+                    FileData::PrivateKey(key)
+                } else {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "no private key found",
+                    ));
+                }
+            }
+            FileType::Data => {
+                let mut buf = Vec::new();
+                reader.read_to_end(&mut buf)?;
+                FileData::Data(buf)
+            }
+        };
+
+        Ok(filedata)
+    }
+
+    pub fn load_file<P>(&mut self, path: P, file_type: FileType) -> IoResult<&FileData<'static>>
+    where
+        P: AsRef<Path>,
+    {
+        let filedata = Self::read_file_data(path.as_ref(), file_type)?;
+        self.data.insert(path.as_ref().to_path_buf(), filedata);
+        Ok(self.data.get(path.as_ref()).unwrap())
+    }
+
+    pub fn get<P>(&self, path: P) -> Option<&FileData<'static>>
+    where
+        P: AsRef<Path>,
+    {
+        self.data.get(path.as_ref())
+    }
+
+    pub fn fetch<P>(&mut self, path: P, file_type: FileType) -> IoResult<&FileData<'static>>
+    where
+        P: AsRef<Path>,
+    {
+        match self.data.entry(path.as_ref().to_path_buf()) {
+            Entry::Occupied(entry) => Ok(entry.into_mut()),
+            Entry::Vacant(entry) => {
+                let filedata = Self::read_file_data(path.as_ref(), file_type)?;
+                Ok(entry.insert(filedata))
+            }
+        }
+    }
+
+    pub fn remove_file<P>(&mut self, path: &P)
+    where
+        P: AsRef<Path>,
+    {
+        self.data.remove(path.as_ref());
+    }
+
+    pub fn clear(&mut self) {
+        self.data.clear();
+    }
+}
+
+#[derive(Debug)]
+pub enum FileData<'a> {
+    TrustAnchors(RootCertStore),
+    Certificates(Vec<CertificateDer<'a>>),
+    PrivateKey(PrivateKeyDer<'a>),
+    Data(Vec<u8>),
+}
+
+impl<'a> FileData<'a> {
+    pub fn clone_trust_anchors(&self) -> Option<RootCertStore> {
+        match self {
+            FileData::TrustAnchors(store) => Some(store.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn clone_certificates(&self) -> Option<Vec<CertificateDer<'static>>> {
+        match self {
+            FileData::Certificates(certs) => {
+                Some(certs.iter().map(|cert| cert.clone().into_owned()).collect())
+            }
+            _ => None,
+        }
+    }
+
+    pub fn clone_private_key(&self) -> Option<PrivateKeyDer<'static>> {
+        match self {
+            FileData::PrivateKey(key) => Some(key.clone_key()),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FileType {
+    TrustAnchors,
+    Certificates,
+    PrivateKey,
+    Data,
+}

@@ -36,7 +36,7 @@ fn main() -> AnyResult<()> {
 }
 
 async fn async_main(app_config: ApplicationConfig) -> AnyResult<()> {
-    let default_params = ConnectionParameters::load_from_global_config(&app_config).await?;
+    //let default_params = ConnectionParameters::load_from_global_config(&app_config).await?;
 
     let resolver = AsyncResolver::tokio_from_system_conf()?;
     let prober = Arc::new(Prober::new(resolver.clone()));

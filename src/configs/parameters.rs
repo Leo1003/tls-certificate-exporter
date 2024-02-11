@@ -92,32 +92,32 @@ impl ConnectionParameters {
         Ok(())
     }
 
-    pub async fn load_from_global_config(config: &ApplicationConfig) -> AnyResult<Self> {
-        let tasks = config
-            .trusted_anchors
-            .clone()
-            .into_iter()
-            .map(|file| async { load_certificates(file).await })
-            .collect::<FuturesUnordered<_>>();
+    // pub async fn load_from_global_config(config: &ApplicationConfig) -> AnyResult<Self> {
+    //     let tasks = config
+    //         .trustedanchors
+    //         .clone()
+    //         .into_iter()
+    //         .map(|file| async { load_certificates(file).await })
+    //         .collect::<FuturesUnordered<_>>();
 
-        let trusted_anchors = tasks.try_concat().await?;
+    //     let trusted_anchors = tasks.try_concat().await?;
 
-        let mut root_store = RootCertStore::empty();
-        for cert in trusted_anchors {
-            root_store.add(cert)?;
-        }
+    //     let mut root_store = RootCertStore::empty();
+    //     for cert in trusted_anchors {
+    //         root_store.add(cert)?;
+    //     }
 
-        let mut default_parameters = ConnectionParameters {
-            timeout: Some(config.default_timeout),
-            trusted_anchors: root_store,
-            ..Default::default()
-        };
-        if let Err(e) = default_parameters.load_system_roots() {
-            warn!("Failed to load CA certificates from system: {}", e);
-        };
+    //     let mut default_parameters = ConnectionParameters {
+    //         timeout: Some(config.default_timeout),
+    //         trusted_anchors: root_store,
+    //         ..Default::default()
+    //     };
+    //     if let Err(e) = default_parameters.load_system_roots() {
+    //         warn!("Failed to load CA certificates from system: {}", e);
+    //     };
 
-        Ok(default_parameters)
-    }
+    //     Ok(default_parameters)
+    // }
 
     // pub async fn load_from_target_config(target_config: &TargetConfig) -> AnyResult<Self> {
     //     let trusted_anchors = OptionFuture::from(

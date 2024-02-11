@@ -1,6 +1,6 @@
 use super::EndpointState;
 use crate::{
-    configs::{ConnectionParameters, SchedulerOverrideConfig},
+    configs::{ConnectionParameters},
     error::{AppError, ErrorReason},
 };
 use chrono::{DateTime, Utc};
@@ -41,7 +41,6 @@ impl Display for Target {
 pub struct TargetState {
     pub endpoints: Vec<EndpointState>,
     pub conn_params: ConnectionParameters,
-    pub schedule_config: SchedulerOverrideConfig,
     pub last_probe: Option<DateTime<Utc>>,
     pub next_probe: Option<DateTime<Utc>>,
 }
