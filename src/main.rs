@@ -4,12 +4,12 @@ extern crate tracing;
 use crate::configs::ApplicationConfig;
 use anyhow::Result as AnyResult;
 use components::{MetricsExporter, Prober};
-use configs::ConnectionParameters;
 use hickory_resolver::AsyncResolver;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::{sync::RwLock, task::JoinSet};
 
 mod certificate_interceptor;
+mod context;
 mod components;
 mod configs;
 mod error;
@@ -36,8 +36,6 @@ fn main() -> AnyResult<()> {
 }
 
 async fn async_main(app_config: ApplicationConfig) -> AnyResult<()> {
-    //let default_params = ConnectionParameters::load_from_global_config(&app_config).await?;
-
     let resolver = AsyncResolver::tokio_from_system_conf()?;
     let prober = Arc::new(Prober::new(resolver.clone()));
     let metrics_exporter = MetricsExporter::new()?;

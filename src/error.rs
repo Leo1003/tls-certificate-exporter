@@ -65,6 +65,8 @@ pub enum ErrorReason {
     InvalidPemTag,
     #[error("Missing private key")]
     MissingPrivateKey,
+    #[error("Unknoen module")]
+    UnknownModule,
     #[error("Unknown error")]
     Unknown,
 }

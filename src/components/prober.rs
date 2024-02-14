@@ -1,8 +1,8 @@
 use crate::{
-    types::ParsedCertificate,
-    configs::{ConnectionParameters, DEFAULT_TIMEOUT},
+    certificate_interceptor::CertificateInterceptor,
+    configs::{ConnectionParameters, ResolvedModuleConfig, DEFAULT_TIMEOUT},
     error::ErrorReason,
-    types::{Endpoint, Target},
+    types::{Endpoint, ParsedCertificate, Target},
 };
 use anyhow::{Context, Result as AnyResult};
 use futures::{stream::FuturesUnordered, TryStreamExt};
@@ -12,7 +12,7 @@ use std::{
     sync::Arc,
 };
 use tokio::{net::TcpStream, time::timeout};
-use tokio_rustls::TlsConnector;
+use tokio_rustls::{rustls::ClientConfig, TlsConnector};
 use x509_certificate::X509Certificate;
 
 #[derive(Clone, Debug)]

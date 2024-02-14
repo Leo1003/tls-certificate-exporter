@@ -2,7 +2,8 @@ use super::{FileContent, ModuleConfig, Starttls, DEFAULT_TIMEOUT};
 use anyhow::Result as AnyResult;
 use petgraph::{
     algo::{has_path_connecting, DfsSpace},
-    graph::{self, Graph}, visit::{Reversed, Topo},
+    graph::Graph,
+    visit::{Reversed, Topo},
 };
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 
@@ -24,17 +25,27 @@ pub struct ResolvedModuleConfig {
 }
 
 impl ResolvedModuleConfig {
-    pub fn merge(self, override_cfg: ModuleConfig) -> Self {
-        Self {
-            timeout: override_cfg.timeout.unwrap_or(self.timeout),
-            trustedanchors: override_cfg.trustedanchors.unwrap_or(self.trustedanchors),
-            certs: override_cfg.certs.or(self.certs),
-            key: override_cfg.key.or(self.key),
-            server_name: override_cfg.server_name.or(self.server_name),
-            starttls: override_cfg.starttls.or(self.starttls),
-            insecure_skip_verify: override_cfg
-                .insecure_skip_verify
-                .unwrap_or(self.insecure_skip_verify),
+    pub fn override_with(&mut self, override_cfg: &ModuleConfig) {
+        if let Some(timeout) = override_cfg.timeout {
+            self.timeout = timeout;
+        }
+        if let Some(trustedanchors) = &override_cfg.trustedanchors {
+            self.trustedanchors = trustedanchors.clone();
+        }
+        if let Some(certs) = &override_cfg.certs {
+            self.certs = Some(certs.clone());
+        }
+        if let Some(key) = &override_cfg.key {
+            self.key = Some(key.clone());
+        }
+        if let Some(server_name) = &override_cfg.server_name {
+            self.server_name = Some(server_name.clone());
+        }
+        if let Some(starttls) = &override_cfg.starttls {
+            self.starttls = Some(starttls.clone());
+        }
+        if let Some(insecure_skip_verify) = override_cfg.insecure_skip_verify {
+            self.insecure_skip_verify = insecure_skip_verify;
         }
     }
 }
@@ -59,14 +70,9 @@ pub fn resolve_module_config(
     modules: &HashMap<String, ModuleConfig>,
 ) -> AnyResult<HashMap<String, ResolvedModuleConfig>> {
     let mut module_store = HashMap::new();
-    // Hardcoded default configurations
-    module_store.insert(String::from("_default"), ResolvedModuleConfig::default());
 
     let mut index_mapping = HashMap::new();
     let mut graph = Graph::new();
-
-    let default_index = graph.add_node(String::from("_default"));
-    index_mapping.insert(String::from("_default"), default_index);
 
     for name in modules.keys() {
         let node_index = graph.add_node(name.clone());
@@ -87,16 +93,22 @@ pub fn resolve_module_config(
         }
     }
 
-    // Resolve the configurations with topological sort
     // Reverse the direction of the graph to do bottom-up resolution
     let reversed_graph = Reversed(&graph);
+    // Resolve the configurations with topological sort
     let mut topo = Topo::new(&reversed_graph);
     while let Some(node_index) = topo.next(&reversed_graph) {
         let name = graph[node_index].clone();
         let config = modules.get(&name).unwrap();
 
-        // TODO: Merge the configurations
-        todo!();
+        // Merge the configurations
+        let mut final_configs = ResolvedModuleConfig::default();
+        for parent in config.extends.iter() {
+            let parent_config = modules.get(parent).unwrap();
+            final_configs.override_with(parent_config);
+        }
+        final_configs.override_with(config);
+        module_store.insert(name, final_configs);
     }
 
     Ok(module_store)

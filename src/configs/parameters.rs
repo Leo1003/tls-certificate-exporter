@@ -1,8 +1,7 @@
-use super::{private_key::PrivateKey, ApplicationConfig, FileContent};
+use super::{private_key::PrivateKey, FileContent};
 use crate::{certificate_interceptor::CertificateInterceptor, error::ErrorReason};
 use anyhow::Result as AnyResult;
-use futures::{future::OptionFuture, prelude::*, stream::FuturesUnordered};
-use rustls_pki_types::{CertificateDer, TrustAnchor};
+use rustls_pki_types::CertificateDer;
 use std::{io::Cursor, sync::Arc, time::Duration};
 use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 
@@ -91,81 +90,6 @@ impl ConnectionParameters {
         }
         Ok(())
     }
-
-    // pub async fn load_from_global_config(config: &ApplicationConfig) -> AnyResult<Self> {
-    //     let tasks = config
-    //         .trustedanchors
-    //         .clone()
-    //         .into_iter()
-    //         .map(|file| async { load_certificates(file).await })
-    //         .collect::<FuturesUnordered<_>>();
-
-    //     let trusted_anchors = tasks.try_concat().await?;
-
-    //     let mut root_store = RootCertStore::empty();
-    //     for cert in trusted_anchors {
-    //         root_store.add(cert)?;
-    //     }
-
-    //     let mut default_parameters = ConnectionParameters {
-    //         timeout: Some(config.default_timeout),
-    //         trusted_anchors: root_store,
-    //         ..Default::default()
-    //     };
-    //     if let Err(e) = default_parameters.load_system_roots() {
-    //         warn!("Failed to load CA certificates from system: {}", e);
-    //     };
-
-    //     Ok(default_parameters)
-    // }
-
-    // pub async fn load_from_target_config(target_config: &TargetConfig) -> AnyResult<Self> {
-    //     let trusted_anchors = OptionFuture::from(
-    //         target_config
-    //             .tls_config
-    //             .ca
-    //             .clone()
-    //             .map(|file| async { load_certificates(file).await }),
-    //     )
-    //     .await
-    //     .transpose()?
-    //     .unwrap_or_default();
-
-    //     let mut root_store = RootCertStore::empty();
-    //     for cert in trusted_anchors {
-    //         root_store.add(cert)?;
-    //     }
-
-    //     let certs = OptionFuture::from(
-    //         target_config
-    //             .tls_config
-    //             .cert
-    //             .clone()
-    //             .map(|file| async { load_certificates(file).await }),
-    //     )
-    //     .await
-    //     .transpose()?
-    //     .unwrap_or_default();
-
-    //     let key = OptionFuture::from(
-    //         target_config
-    //             .tls_config
-    //             .key
-    //             .clone()
-    //             .map(|file| async { load_private_key(file).await }),
-    //     )
-    //     .await
-    //     .transpose()?;
-
-    //     Ok(Self {
-    //         timeout: target_config.timeout,
-    //         trusted_anchors: root_store,
-    //         certs,
-    //         key,
-    //         server_name: target_config.tls_config.server_name.clone(),
-    //         insecure_skip_verify: target_config.tls_config.insecure_skip_verify,
-    //     })
-    // }
 }
 
 async fn load_certificates(file: FileContent) -> AnyResult<Vec<CertificateDer<'static>>> {

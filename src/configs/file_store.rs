@@ -1,12 +1,15 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     fs::File,
-    io::{BufReader, Read, Result as IoResult},
+    io::{BufRead, BufReader, Result as IoResult},
     path::{Path, PathBuf},
 };
+use tokio::{fs::File as AsyncFile, io::AsyncReadExt};
 
 use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 use tokio_rustls::rustls::RootCertStore;
+
+use super::FileContent;
 
 #[derive(Debug, Default)]
 pub struct FileStore {
@@ -20,16 +23,29 @@ impl FileStore {
     {
         let file = File::open(path.as_ref())?;
         let mut reader = BufReader::new(file);
+        Self::parse_buffer(&mut reader, file_type)
+    }
 
+    async fn read_file_data_async<P>(path: P, file_type: FileType) -> IoResult<FileData<'static>>
+    where
+        P: AsRef<Path>,
+    {
+        let mut file = AsyncFile::open(path.as_ref()).await?;
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).await?;
+        Self::parse_buffer(&mut data.as_slice(), file_type)
+    }
+
+    fn parse_buffer(buf: &mut dyn BufRead, file_type: FileType) -> IoResult<FileData<'static>> {
         let filedata = match file_type {
             FileType::TrustAnchors => {
-                let certs = rustls_pemfile::certs(&mut reader).collect::<IoResult<Vec<_>>>()?;
+                let certs = rustls_pemfile::certs(buf).collect::<IoResult<Vec<_>>>()?;
                 let mut store = RootCertStore::empty();
                 store.add_parsable_certificates(certs);
                 FileData::TrustAnchors(store)
             }
             FileType::Certificates => {
-                let certs = rustls_pemfile::certs(&mut reader).collect::<IoResult<Vec<_>>>()?;
+                let certs = rustls_pemfile::certs(buf).collect::<IoResult<Vec<_>>>()?;
                 if certs.is_empty() {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
@@ -39,7 +55,7 @@ impl FileStore {
                 FileData::Certificates(certs)
             }
             FileType::PrivateKey => {
-                let key = rustls_pemfile::private_key(&mut reader)?;
+                let key = rustls_pemfile::private_key(buf)?;
                 if let Some(key) = key {
                     FileData::PrivateKey(key)
                 } else {
@@ -50,9 +66,9 @@ impl FileStore {
                 }
             }
             FileType::Data => {
-                let mut buf = Vec::new();
-                reader.read_to_end(&mut buf)?;
-                FileData::Data(buf)
+                let mut data = Vec::new();
+                buf.read_to_end(&mut data)?;
+                FileData::Data(data)
             }
         };
 
@@ -84,6 +100,49 @@ impl FileStore {
             Entry::Vacant(entry) => {
                 let filedata = Self::read_file_data(path.as_ref(), file_type)?;
                 Ok(entry.insert(filedata))
+            }
+        }
+    }
+
+    pub async fn fetch_async<P>(
+        &mut self,
+        path: P,
+        file_type: FileType,
+    ) -> IoResult<&FileData<'static>>
+    where
+        P: AsRef<Path>,
+    {
+        match self.data.entry(path.as_ref().to_path_buf()) {
+            Entry::Occupied(entry) => Ok(entry.into_mut()),
+            Entry::Vacant(entry) => {
+                let filedata = Self::read_file_data_async(path.as_ref(), file_type).await?;
+                Ok(entry.insert(filedata))
+            }
+        }
+    }
+
+    pub fn load_file_content(
+        &mut self,
+        file_content: &FileContent,
+        file_type: FileType,
+    ) -> IoResult<FileData<'static>> {
+        match file_content {
+            FileContent::Path { path } => self.fetch(path, file_type).cloned(),
+            FileContent::Inline { content } => {
+                Self::parse_buffer(&mut content.as_slice(), file_type)
+            }
+        }
+    }
+
+    pub async fn load_file_content_async(
+        &mut self,
+        file_content: &FileContent,
+        file_type: FileType,
+    ) -> IoResult<FileData<'static>> {
+        match file_content {
+            FileContent::Path { path } => self.fetch_async(path, file_type).await.cloned(),
+            FileContent::Inline { content } => {
+                Self::parse_buffer(&mut content.as_slice(), file_type)
             }
         }
     }
@@ -129,6 +188,23 @@ impl<'a> FileData<'a> {
         match self {
             FileData::PrivateKey(key) => Some(key.clone_key()),
             _ => None,
+        }
+    }
+}
+
+impl Clone for FileData<'_> {
+    fn clone(&self) -> Self {
+        match self {
+            FileData::TrustAnchors(store) => FileData::TrustAnchors(store.clone()),
+            FileData::Certificates(certs) => FileData::Certificates(
+                certs
+                    .iter()
+                    .cloned()
+                    .map(|cert| cert.into_owned())
+                    .collect(),
+            ),
+            FileData::PrivateKey(key) => FileData::PrivateKey(key.clone_key()),
+            FileData::Data(data) => FileData::Data(data.clone()),
         }
     }
 }

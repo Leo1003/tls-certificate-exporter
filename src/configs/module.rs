@@ -30,21 +30,6 @@ pub struct ModuleConfig {
     pub insecure_skip_verify: Option<bool>,
 }
 
-impl ModuleConfig {
-    pub fn extends_on(self, base_cfg: ModuleConfig) -> Self {
-        Self {
-            extends: self.extends,
-            timeout: self.timeout.or(base_cfg.timeout),
-            trustedanchors: self.trustedanchors.or(base_cfg.trustedanchors),
-            certs: self.certs.or(base_cfg.certs),
-            key: self.key.or(base_cfg.key),
-            server_name: self.server_name.or(base_cfg.server_name),
-            starttls: self.starttls.or(base_cfg.starttls),
-            insecure_skip_verify: self.insecure_skip_verify.or(base_cfg.insecure_skip_verify),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Starttls {
     Ldap,

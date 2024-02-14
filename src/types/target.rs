@@ -1,9 +1,4 @@
-use super::EndpointState;
-use crate::{
-    configs::{ConnectionParameters},
-    error::{AppError, ErrorReason},
-};
-use chrono::{DateTime, Utc};
+use crate::error::{AppError, ErrorReason};
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     str::FromStr,
@@ -35,12 +30,4 @@ impl Display for Target {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}:{}", self.host, self.port)
     }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct TargetState {
-    pub endpoints: Vec<EndpointState>,
-    pub conn_params: ConnectionParameters,
-    pub last_probe: Option<DateTime<Utc>>,
-    pub next_probe: Option<DateTime<Utc>>,
 }

@@ -17,7 +17,7 @@ pub use file_content::FileContent;
 pub use file_store::*;
 pub use module::{ModuleConfig, Starttls};
 pub use parameters::ConnectionParameters;
-pub use resolved::ResolvedModuleConfig;
+pub use resolved::{resolve_module_config, ResolvedModuleConfig};
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(3);
 
