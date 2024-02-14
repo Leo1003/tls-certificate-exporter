@@ -1,4 +1,4 @@
-use super::{private_key::PrivateKey, FileContent};
+use super::{private_key::PrivateKey, FileSource};
 use crate::{
     certificate_interceptor::CertificateInterceptor, error::ErrorReason,
 };
@@ -100,7 +100,7 @@ impl ConnectionParameters {
 }
 
 async fn load_certificates(
-    file: FileContent,
+    file: FileSource,
 ) -> AnyResult<Vec<CertificateDer<'static>>> {
     let data = file.load_file().await?;
     let mut buf = Cursor::new(data);
@@ -109,7 +109,7 @@ async fn load_certificates(
     Ok(pems)
 }
 
-async fn load_private_key(file: FileContent) -> AnyResult<PrivateKey> {
+async fn load_private_key(file: FileSource) -> AnyResult<PrivateKey> {
     let data = file.load_file().await?;
     PrivateKey::load_from_pem(&data)
 }

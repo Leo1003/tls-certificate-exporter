@@ -8,7 +8,7 @@ use std::{
 };
 
 mod application;
-mod file_content;
+mod file_source;
 mod file_store;
 mod module;
 mod parameters;
@@ -16,7 +16,7 @@ mod private_key;
 mod resolved;
 
 pub use application::ApplicationConfig;
-pub use file_content::FileContent;
+pub use file_source::FileSource;
 pub use file_store::*;
 pub use module::{ModuleConfig, Starttls};
 pub use parameters::ConnectionParameters;

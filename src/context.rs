@@ -41,7 +41,7 @@ impl ApplicationContext {
 
         let trustanchors = Arc::new(
             store
-                .load_file_content_async(
+                .load_from_source_async(
                     &module.trustedanchors,
                     FileType::TrustAnchors,
                 )
@@ -61,12 +61,12 @@ impl ApplicationContext {
 
         let config = if let Some(certs_fc) = &module.certs {
             let certs = store
-                .load_file_content_async(certs_fc, FileType::Certificates)
+                .load_from_source_async(certs_fc, FileType::Certificates)
                 .await?
                 .clone_certificates()
                 .ok_or(ErrorReason::InvalidPemTag)?;
             let key = store
-                .load_file_content_async(
+                .load_from_source_async(
                     module
                         .key
                         .as_ref()

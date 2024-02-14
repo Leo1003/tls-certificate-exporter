@@ -1,4 +1,4 @@
-use super::{FileContent, ModuleConfig, Starttls, DEFAULT_TIMEOUT};
+use super::{FileSource, ModuleConfig, Starttls, DEFAULT_TIMEOUT};
 use anyhow::Result as AnyResult;
 use petgraph::{
     algo::{has_path_connecting, DfsSpace},
@@ -11,11 +11,11 @@ use std::{collections::HashMap, path::PathBuf, time::Duration};
 pub struct ResolvedModuleConfig {
     pub timeout: Duration,
 
-    pub trustedanchors: FileContent,
+    pub trustedanchors: FileSource,
 
-    pub certs: Option<FileContent>,
+    pub certs: Option<FileSource>,
 
-    pub key: Option<FileContent>,
+    pub key: Option<FileSource>,
 
     pub server_name: Option<String>,
 
@@ -54,7 +54,7 @@ impl Default for ResolvedModuleConfig {
     fn default() -> Self {
         Self {
             timeout: DEFAULT_TIMEOUT,
-            trustedanchors: FileContent::Path {
+            trustedanchors: FileSource::Path {
                 path: PathBuf::new(),
             },
             certs: None,

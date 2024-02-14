@@ -1,4 +1,4 @@
-use super::{default_timeout, FileContent, ModuleConfig};
+use super::{default_timeout, FileSource, ModuleConfig};
 use anyhow::Result as AnyResult;
 use config::{Config, Environment as ConfigEnv, File as ConfigFile};
 use duration_str::deserialize_duration;

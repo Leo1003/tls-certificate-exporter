@@ -9,7 +9,7 @@ use tokio::{fs::File as AsyncFile, io::AsyncReadExt};
 use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 use tokio_rustls::rustls::RootCertStore;
 
-use super::FileContent;
+use super::FileSource;
 
 #[derive(Debug, Default)]
 pub struct FileStore {
@@ -142,29 +142,29 @@ impl FileStore {
         }
     }
 
-    pub fn load_file_content(
+    pub fn load_from_source(
         &mut self,
-        file_content: &FileContent,
+        source: &FileSource,
         file_type: FileType,
     ) -> IoResult<FileData<'static>> {
-        match file_content {
-            FileContent::Path { path } => self.fetch(path, file_type).cloned(),
-            FileContent::Inline { content } => {
+        match source {
+            FileSource::Path { path } => self.fetch(path, file_type).cloned(),
+            FileSource::Inline { content } => {
                 Self::parse_buffer(&mut content.as_slice(), file_type)
             }
         }
     }
 
-    pub async fn load_file_content_async(
+    pub async fn load_from_source_async(
         &mut self,
-        file_content: &FileContent,
+        source: &FileSource,
         file_type: FileType,
     ) -> IoResult<FileData<'static>> {
-        match file_content {
-            FileContent::Path { path } => {
+        match source {
+            FileSource::Path { path } => {
                 self.fetch_async(path, file_type).await.cloned()
             }
-            FileContent::Inline { content } => {
+            FileSource::Inline { content } => {
                 Self::parse_buffer(&mut content.as_slice(), file_type)
             }
         }

@@ -1,4 +1,4 @@
-use super::FileContent;
+use super::FileSource;
 use duration_str::deserialize_option_duration;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -12,13 +12,13 @@ pub struct ModuleConfig {
     pub timeout: Option<Duration>,
 
     #[serde(default)]
-    pub trustedanchors: Option<FileContent>,
+    pub trustedanchors: Option<FileSource>,
 
     #[serde(default)]
-    pub certs: Option<FileContent>,
+    pub certs: Option<FileSource>,
 
     #[serde(default)]
-    pub key: Option<FileContent>,
+    pub key: Option<FileSource>,
 
     #[serde(default)]
     pub server_name: Option<String>,
