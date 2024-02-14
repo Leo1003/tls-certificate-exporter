@@ -1,6 +1,8 @@
 use crate::error::ErrorReason;
 use anyhow::Result as AnyResult;
-use hickory_resolver::{name_server::ConnectionProvider, AsyncResolver, TryParseIp};
+use hickory_resolver::{
+    name_server::ConnectionProvider, AsyncResolver, TryParseIp,
+};
 use rustls_pki_types::ServerName;
 use std::{
     fmt::{Display, Formatter},

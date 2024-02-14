@@ -87,7 +87,12 @@ pub fn resolve_module_config(
             let parent_index = index_mapping.get(extends).unwrap();
             graph.add_edge(*node_index, *parent_index, ());
             // Ensure the graph is acyclic
-            if has_path_connecting(&graph, *parent_index, *node_index, Some(&mut workspace)) {
+            if has_path_connecting(
+                &graph,
+                *parent_index,
+                *node_index,
+                Some(&mut workspace),
+            ) {
                 return Err(anyhow::anyhow!("Cyclic dependency detected"));
             }
         }

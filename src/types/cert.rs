@@ -20,14 +20,18 @@ impl ParsedCertificate {
     pub fn not_before(&self) -> i64 {
         match &self.0.as_ref().tbs_certificate.validity.not_before {
             Time::UtcTime(t) => t.timestamp(),
-            Time::GeneralTime(t) => DateTime::<Utc>::from(t.clone()).timestamp(),
+            Time::GeneralTime(t) => {
+                DateTime::<Utc>::from(t.clone()).timestamp()
+            }
         }
     }
 
     pub fn not_after(&self) -> i64 {
         match &self.0.as_ref().tbs_certificate.validity.not_after {
             Time::UtcTime(t) => t.timestamp(),
-            Time::GeneralTime(t) => DateTime::<Utc>::from(t.clone()).timestamp(),
+            Time::GeneralTime(t) => {
+                DateTime::<Utc>::from(t.clone()).timestamp()
+            }
         }
     }
 

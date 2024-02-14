@@ -9,9 +9,9 @@ use std::{num::NonZeroUsize, sync::Arc};
 use tokio::{sync::RwLock, task::JoinSet};
 
 mod certificate_interceptor;
-mod context;
 mod components;
 mod configs;
+mod context;
 mod error;
 mod types;
 
@@ -21,7 +21,8 @@ fn main() -> AnyResult<()> {
     // Initialize the logger after loading the environment variables
     tracing_subscriber::fmt::init();
 
-    let app_config = ApplicationConfig::load_config().expect("Failed to parse configuration files");
+    let app_config = ApplicationConfig::load_config()
+        .expect("Failed to parse configuration files");
 
     // Setup async runtime
     let mut runtime_builder = tokio::runtime::Builder::new_multi_thread();

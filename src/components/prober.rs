@@ -39,7 +39,9 @@ impl Prober {
 
         let tasks: FuturesUnordered<_> = endpoints
             .into_iter()
-            .map(|ep| async move { Self::probe_endpoint(&ep, parameters).await })
+            .map(
+                |ep| async move { Self::probe_endpoint(&ep, parameters).await },
+            )
             .collect();
         tasks.try_collect().await
     }

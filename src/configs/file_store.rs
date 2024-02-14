@@ -17,7 +17,10 @@ pub struct FileStore {
 }
 
 impl FileStore {
-    fn read_file_data<P>(path: P, file_type: FileType) -> IoResult<FileData<'static>>
+    fn read_file_data<P>(
+        path: P,
+        file_type: FileType,
+    ) -> IoResult<FileData<'static>>
     where
         P: AsRef<Path>,
     {
@@ -26,7 +29,10 @@ impl FileStore {
         Self::parse_buffer(&mut reader, file_type)
     }
 
-    async fn read_file_data_async<P>(path: P, file_type: FileType) -> IoResult<FileData<'static>>
+    async fn read_file_data_async<P>(
+        path: P,
+        file_type: FileType,
+    ) -> IoResult<FileData<'static>>
     where
         P: AsRef<Path>,
     {
@@ -36,16 +42,21 @@ impl FileStore {
         Self::parse_buffer(&mut data.as_slice(), file_type)
     }
 
-    fn parse_buffer(buf: &mut dyn BufRead, file_type: FileType) -> IoResult<FileData<'static>> {
+    fn parse_buffer(
+        buf: &mut dyn BufRead,
+        file_type: FileType,
+    ) -> IoResult<FileData<'static>> {
         let filedata = match file_type {
             FileType::TrustAnchors => {
-                let certs = rustls_pemfile::certs(buf).collect::<IoResult<Vec<_>>>()?;
+                let certs =
+                    rustls_pemfile::certs(buf).collect::<IoResult<Vec<_>>>()?;
                 let mut store = RootCertStore::empty();
                 store.add_parsable_certificates(certs);
                 FileData::TrustAnchors(store)
             }
             FileType::Certificates => {
-                let certs = rustls_pemfile::certs(buf).collect::<IoResult<Vec<_>>>()?;
+                let certs =
+                    rustls_pemfile::certs(buf).collect::<IoResult<Vec<_>>>()?;
                 if certs.is_empty() {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
@@ -75,7 +86,11 @@ impl FileStore {
         Ok(filedata)
     }
 
-    pub fn load_file<P>(&mut self, path: P, file_type: FileType) -> IoResult<&FileData<'static>>
+    pub fn load_file<P>(
+        &mut self,
+        path: P,
+        file_type: FileType,
+    ) -> IoResult<&FileData<'static>>
     where
         P: AsRef<Path>,
     {
@@ -91,7 +106,11 @@ impl FileStore {
         self.data.get(path.as_ref())
     }
 
-    pub fn fetch<P>(&mut self, path: P, file_type: FileType) -> IoResult<&FileData<'static>>
+    pub fn fetch<P>(
+        &mut self,
+        path: P,
+        file_type: FileType,
+    ) -> IoResult<&FileData<'static>>
     where
         P: AsRef<Path>,
     {
@@ -115,7 +134,9 @@ impl FileStore {
         match self.data.entry(path.as_ref().to_path_buf()) {
             Entry::Occupied(entry) => Ok(entry.into_mut()),
             Entry::Vacant(entry) => {
-                let filedata = Self::read_file_data_async(path.as_ref(), file_type).await?;
+                let filedata =
+                    Self::read_file_data_async(path.as_ref(), file_type)
+                        .await?;
                 Ok(entry.insert(filedata))
             }
         }
@@ -140,7 +161,9 @@ impl FileStore {
         file_type: FileType,
     ) -> IoResult<FileData<'static>> {
         match file_content {
-            FileContent::Path { path } => self.fetch_async(path, file_type).await.cloned(),
+            FileContent::Path { path } => {
+                self.fetch_async(path, file_type).await.cloned()
+            }
             FileContent::Inline { content } => {
                 Self::parse_buffer(&mut content.as_slice(), file_type)
             }
@@ -177,9 +200,9 @@ impl<'a> FileData<'a> {
 
     pub fn clone_certificates(&self) -> Option<Vec<CertificateDer<'static>>> {
         match self {
-            FileData::Certificates(certs) => {
-                Some(certs.iter().map(|cert| cert.clone().into_owned()).collect())
-            }
+            FileData::Certificates(certs) => Some(
+                certs.iter().map(|cert| cert.clone().into_owned()).collect(),
+            ),
             _ => None,
         }
     }
@@ -195,7 +218,9 @@ impl<'a> FileData<'a> {
 impl Clone for FileData<'_> {
     fn clone(&self) -> Self {
         match self {
-            FileData::TrustAnchors(store) => FileData::TrustAnchors(store.clone()),
+            FileData::TrustAnchors(store) => {
+                FileData::TrustAnchors(store.clone())
+            }
             FileData::Certificates(certs) => FileData::Certificates(
                 certs
                     .iter()

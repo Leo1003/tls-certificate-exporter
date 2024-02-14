@@ -17,7 +17,8 @@ impl FromStr for Target {
         let (host, port) = target
             .rsplit_once(':')
             .ok_or(ErrorReason::InvalidEndpoint)?;
-        let port: u16 = port.parse().map_err(|_| ErrorReason::InvalidEndpoint)?;
+        let port: u16 =
+            port.parse().map_err(|_| ErrorReason::InvalidEndpoint)?;
 
         Ok(Target {
             host: host.to_owned(),

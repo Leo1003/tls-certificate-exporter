@@ -19,7 +19,8 @@ pub struct MetricsExporter {
 impl MetricsExporter {
     pub fn new() -> AnyResult<Self> {
         let registry = Registry::new_custom(None, None)?;
-        let cert_labels = ["target", "endpoint", "serial_number", "subject", "issuer"];
+        let cert_labels =
+            ["target", "endpoint", "serial_number", "subject", "issuer"];
 
         let metric_not_before = IntGaugeVec::new(
             Opts::new("not_before", "Certificate not before timestamp")
@@ -55,8 +56,9 @@ impl MetricsExporter {
         Ok(())
     }
 
-    async fn handle_metrics(state: State<ExporterState>) -> Result<String, StatusCode> {
-
+    async fn handle_metrics(
+        state: State<ExporterState>,
+    ) -> Result<String, StatusCode> {
         let encoder = TextEncoder::new();
         let resp = encoder
             .encode_to_string(&state.registry.gather())

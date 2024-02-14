@@ -13,7 +13,8 @@ pub struct PrivateKey(PrivateKeyDer<'static>);
 impl PrivateKey {
     pub fn load_from_pem(data: &[u8]) -> AnyResult<Self> {
         let mut buf = Cursor::new(data);
-        let key = rustls_pemfile::private_key(&mut buf)?.ok_or(ErrorReason::MissingPrivateKey)?;
+        let key = rustls_pemfile::private_key(&mut buf)?
+            .ok_or(ErrorReason::MissingPrivateKey)?;
         Ok(Self(key))
     }
 }

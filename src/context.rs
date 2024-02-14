@@ -1,7 +1,8 @@
 use crate::{
     certificate_interceptor::CertificateInterceptor,
     configs::{
-        resolve_module_config, ApplicationConfig, FileStore, FileType, ResolvedModuleConfig,
+        resolve_module_config, ApplicationConfig, FileStore, FileType,
+        ResolvedModuleConfig,
     },
     error::ErrorReason,
 };
@@ -40,7 +41,10 @@ impl ApplicationContext {
 
         let trustanchors = Arc::new(
             store
-                .load_file_content_async(&module.trustedanchors, FileType::TrustAnchors)
+                .load_file_content_async(
+                    &module.trustedanchors,
+                    FileType::TrustAnchors,
+                )
                 .await?
                 .clone_trust_anchors()
                 .ok_or(ErrorReason::InvalidPemTag)?,
@@ -63,7 +67,10 @@ impl ApplicationContext {
                 .ok_or(ErrorReason::InvalidPemTag)?;
             let key = store
                 .load_file_content_async(
-                    module.key.as_ref().ok_or(ErrorReason::MissingPrivateKey)?,
+                    module
+                        .key
+                        .as_ref()
+                        .ok_or(ErrorReason::MissingPrivateKey)?,
                     FileType::PrivateKey,
                 )
                 .await?

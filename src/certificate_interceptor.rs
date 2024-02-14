@@ -3,10 +3,13 @@ use std::{fmt::Debug, sync::Arc};
 use tokio::sync::OnceCell;
 use tokio_rustls::rustls::{
     client::{
-        danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier},
+        danger::{
+            HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
+        },
         WebPkiServerVerifier,
     },
-    DigitallySignedStruct, Error as RustlsError, RootCertStore, SignatureScheme,
+    DigitallySignedStruct, Error as RustlsError, RootCertStore,
+    SignatureScheme,
 };
 
 /// If the certificate has expired, the connect operation will return Err.
@@ -26,7 +29,10 @@ impl CertificateInterceptor {
         )
     }
 
-    pub fn with_verifier(verifier: Arc<WebPkiServerVerifier>, insecure_skip_verify: bool) -> Self {
+    pub fn with_verifier(
+        verifier: Arc<WebPkiServerVerifier>,
+        insecure_skip_verify: bool,
+    ) -> Self {
         Self {
             certificates: Default::default(),
             verifier,
@@ -57,7 +63,8 @@ impl ServerCertVerifier for CertificateInterceptor {
         now: UnixTime,
     ) -> Result<ServerCertVerified, RustlsError> {
         let mut certs = vec![end_entity.clone().into_owned()];
-        certs.extend(intermediates.iter().map(|cert| cert.clone().into_owned()));
+        certs
+            .extend(intermediates.iter().map(|cert| cert.clone().into_owned()));
 
         self.certificates.set(certs).ok();
 

@@ -1,5 +1,7 @@
 use super::{private_key::PrivateKey, FileContent};
-use crate::{certificate_interceptor::CertificateInterceptor, error::ErrorReason};
+use crate::{
+    certificate_interceptor::CertificateInterceptor, error::ErrorReason,
+};
 use anyhow::Result as AnyResult;
 use rustls_pki_types::CertificateDer;
 use std::{io::Cursor, sync::Arc, time::Duration};
@@ -34,7 +36,9 @@ impl Default for ConnectionParameters {
 }
 
 impl ConnectionParameters {
-    pub fn build_tls_config(&self) -> AnyResult<(ClientConfig, Arc<CertificateInterceptor>)> {
+    pub fn build_tls_config(
+        &self,
+    ) -> AnyResult<(ClientConfig, Arc<CertificateInterceptor>)> {
         let builder = ClientConfig::builder();
 
         let root_certs = Arc::new(self.trusted_anchors.clone());
@@ -49,7 +53,10 @@ impl ConnectionParameters {
             .with_custom_certificate_verifier(interceptor.clone());
         let config = if !self.certs.is_empty() {
             if let Some(key) = self.key.as_ref() {
-                builder.with_client_auth_cert(self.certs.clone(), key.clone_key())?
+                builder.with_client_auth_cert(
+                    self.certs.clone(),
+                    key.clone_key(),
+                )?
             } else {
                 return Err(ErrorReason::MissingPrivateKey.into());
             }
@@ -92,10 +99,13 @@ impl ConnectionParameters {
     }
 }
 
-async fn load_certificates(file: FileContent) -> AnyResult<Vec<CertificateDer<'static>>> {
+async fn load_certificates(
+    file: FileContent,
+) -> AnyResult<Vec<CertificateDer<'static>>> {
     let data = file.load_file().await?;
     let mut buf = Cursor::new(data);
-    let pems = rustls_pemfile::certs(&mut buf).collect::<Result<Vec<_>, std::io::Error>>()?;
+    let pems = rustls_pemfile::certs(&mut buf)
+        .collect::<Result<Vec<_>, std::io::Error>>()?;
     Ok(pems)
 }
 

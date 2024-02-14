@@ -19,7 +19,10 @@ pub struct ApplicationConfig {
 impl ApplicationConfig {
     pub fn load_config() -> AnyResult<Self> {
         let cfg = Config::builder()
-            .add_source(ConfigFile::with_name("/etc/tls-certificate-exporter/").required(false))
+            .add_source(
+                ConfigFile::with_name("/etc/tls-certificate-exporter/")
+                    .required(false),
+            )
             .add_source(ConfigFile::with_name("config").required(false))
             .add_source(ConfigEnv::with_prefix("TLSCE").separator("_"))
             .build()?

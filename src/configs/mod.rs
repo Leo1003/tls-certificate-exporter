@@ -2,7 +2,10 @@ use anyhow::Result as AnyResult;
 use config::{Config, Environment as ConfigEnv, File as ConfigFile};
 use duration_str::{deserialize_duration, deserialize_option_duration};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, default::Default, hash::Hash, ops::Add, time::Duration};
+use std::{
+    collections::HashMap, default::Default, hash::Hash, ops::Add,
+    time::Duration,
+};
 
 mod application;
 mod file_content;
