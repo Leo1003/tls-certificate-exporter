@@ -1,10 +1,13 @@
 use crate::error::{AppError, ErrorReason};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     str::FromStr,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Hash, SerializeDisplay, DeserializeFromStr,
+)]
 pub struct Target {
     pub host: String,
     pub port: u16,
