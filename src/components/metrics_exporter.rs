@@ -1,8 +1,5 @@
 use anyhow::Result as AnyResult;
-use axum::{extract::State, http::StatusCode, routing::get, Router};
 use prometheus::{IntGaugeVec, Opts, Registry, TextEncoder};
-use std::{net::Ipv4Addr, sync::Arc};
-use tokio::{net::TcpListener, sync::RwLock};
 
 #[derive(Clone, Debug)]
 struct ExporterState {
@@ -44,26 +41,5 @@ impl MetricsExporter {
                 metric_not_after,
             },
         })
-    }
-
-    pub async fn run(&self) -> AnyResult<()> {
-        let router = Router::new()
-            .route("/metrics", get(Self::handle_metrics))
-            .with_state(self.state.clone());
-
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 9880)).await?;
-        axum::serve(listener, router).await?;
-        Ok(())
-    }
-
-    async fn handle_metrics(
-        state: State<ExporterState>,
-    ) -> Result<String, StatusCode> {
-        let encoder = TextEncoder::new();
-        let resp = encoder
-            .encode_to_string(&state.registry.gather())
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-        Ok(resp)
     }
 }

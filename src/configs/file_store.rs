@@ -1,3 +1,6 @@
+use super::FileSource;
+use crate::error::{AppError, AppResult, ErrorReason};
+use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 use std::{
     collections::{hash_map::Entry, HashMap},
     fs::File,
@@ -5,11 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tokio::{fs::File as AsyncFile, io::AsyncReadExt};
-
-use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 use tokio_rustls::rustls::RootCertStore;
-
-use super::FileSource;
 
 #[derive(Debug, Default)]
 pub struct FileStore {
@@ -211,6 +210,41 @@ impl<'a> FileData<'a> {
         match self {
             FileData::PrivateKey(key) => Some(key.clone_key()),
             _ => None,
+        }
+    }
+}
+
+impl TryInto<RootCertStore> for FileData<'_> {
+    type Error = AppError;
+
+    fn try_into(self) -> AppResult<RootCertStore> {
+        match self {
+            FileData::TrustAnchors(store) => Ok(store),
+            _ => Err(ErrorReason::FileTypeMismatch.into()),
+        }
+    }
+}
+
+impl TryInto<Vec<CertificateDer<'static>>> for FileData<'_> {
+    type Error = AppError;
+
+    fn try_into(self) -> AppResult<Vec<CertificateDer<'static>>> {
+        match self {
+            FileData::Certificates(certs) => {
+                Ok(certs.into_iter().map(|cert| cert.into_owned()).collect())
+            }
+            _ => Err(ErrorReason::FileTypeMismatch.into()),
+        }
+    }
+}
+
+impl TryInto<PrivateKeyDer<'static>> for FileData<'_> {
+    type Error = AppError;
+
+    fn try_into(self) -> AppResult<PrivateKeyDer<'static>> {
+        match self {
+            FileData::PrivateKey(key) => Ok(key.clone_key()),
+            _ => Err(ErrorReason::FileTypeMismatch.into()),
         }
     }
 }

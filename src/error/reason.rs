@@ -18,10 +18,10 @@ pub enum ErrorReason {
     TlsError(#[from] tokio_rustls::rustls::Error),
     #[error("Invalid endpoint")]
     InvalidEndpoint,
-    #[error("Invalid PEM tag")]
-    InvalidPemTag,
     #[error("Missing private key")]
     MissingPrivateKey,
+    #[error("File type mismatch")]
+    FileTypeMismatch,
     #[error("Unknoen module")]
     UnknownModule,
     #[error("Unknown error")]

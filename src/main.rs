@@ -3,15 +3,16 @@ extern crate tracing;
 
 use crate::configs::ApplicationConfig;
 use anyhow::Result as AnyResult;
-use components::{MetricsExporter, Prober};
+use components::{MetricsExporter, Prober, ServerState};
+use error::AppResult;
+use futures::TryFutureExt;
 use hickory_resolver::AsyncResolver;
-use std::{num::NonZeroUsize, sync::Arc};
-use tokio::{sync::RwLock, task::JoinSet};
+use std::num::NonZeroUsize;
+use tokio::task::JoinSet;
 
 mod certificate_interceptor;
 mod components;
 mod configs;
-mod context;
 mod error;
 mod types;
 
@@ -38,11 +39,17 @@ fn main() -> AnyResult<()> {
 
 async fn async_main(app_config: ApplicationConfig) -> AnyResult<()> {
     let resolver = AsyncResolver::tokio_from_system_conf()?;
-    let prober = Arc::new(Prober::new(resolver.clone()));
+    let prober = Prober::new(resolver.clone());
     let metrics_exporter = MetricsExporter::new()?;
 
-    let mut taskset = JoinSet::new();
-    taskset.spawn(async move { metrics_exporter.run().await });
+    let state = ServerState::load_from_config(
+        app_config.clone(),
+        prober,
+        metrics_exporter,
+    )?;
+
+    let mut taskset: JoinSet<AppResult<()>> = JoinSet::new();
+    taskset.spawn(state.run_server().map_err(|e| e.into()));
     taskset.join_next().await;
 
     Ok(())
