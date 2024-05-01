@@ -24,6 +24,6 @@ pub enum ErrorReason {
     FileTypeMismatch,
     #[error("Unknoen module")]
     UnknownModule,
-    #[error("Unknown error")]
-    Unknown,
+    #[error("Failed to get certificates")]
+    CertificatesFetchError,
 }
