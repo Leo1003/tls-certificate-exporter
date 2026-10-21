@@ -37,7 +37,7 @@ prometheus = "0.13.3"
 rustls-native-certs = "0.7.0"
 rustls-pki-types = "1"
 rustls-pemfile = "2.0.0"
-rustls-webpki = "0.102.1"
+rustls-webpki = "0.103.16"
 serde = { version = "1.0.184", features = ["derive"] }
 serde_bytes = "0.11.12"
 serde_with = "3.3.0"
